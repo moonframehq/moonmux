@@ -238,15 +238,16 @@ fn edits_that_leave_gits_output_the_same_still_show() {
 
 #[test]
 fn a_path_is_one_file_never_a_pattern() {
+    // `[ab].txt` is a name on every system, and as a pattern it also
+    // matches `a.txt`, which `repository()` commits.
     let dir = repository();
-    fs::write(dir.join("a*b.txt"), "star\n").unwrap();
-    fs::write(dir.join("axb.txt"), "x\n").unwrap();
+    fs::write(dir.join("[ab].txt"), "star\n").unwrap();
     git(&dir, &["add", "-A"]);
     git(&dir, &["commit", "-q", "-m", "two"]);
-    fs::write(dir.join("a*b.txt"), "star\nmore\n").unwrap();
-    fs::write(dir.join("axb.txt"), "x\nother\n").unwrap();
+    fs::write(dir.join("[ab].txt"), "star\nmore\n").unwrap();
+    fs::write(dir.join("a.txt"), "one\nother\n").unwrap();
     let (mut changes, host) = following(&dir);
-    changes.receive(&host, "changes", Data::map([("diff", "a*b.txt".into())]));
+    changes.receive(&host, "changes", Data::map([("diff", "[ab].txt".into())]));
     let snapshot = changes.snapshot(true).unwrap();
     let hunks = snapshot["diff"]["hunks"].as_array().unwrap();
     assert_eq!(hunks.len(), 1, "{snapshot}");
