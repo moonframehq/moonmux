@@ -1,0 +1,14 @@
+# The uncommitted changes of the repository the Changes panel follows (the
+# focused pane's folder), shared as `app.changes`: the changed files with
+# their line counts, one file's diff, and a commit of them all, answered to
+# the panel. The native provider in src/changes.rs. Moonframe's own `git`
+# provider watches the repository the app runs from, fixed at start, so it
+# cannot follow the focused pane.
+interval = 1.0
+kind     = "native"
+
+[settings]
+# The mods listened to. A commit changes the user's history, and a mod
+# names the repository, so a mod from a package the user installed is
+# ignored unless its name is added here.
+writers = ["changes"]

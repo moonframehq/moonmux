@@ -1,0 +1,14 @@
+# The files of the folder the Files panel follows (the focused pane's),
+# shared as `app.folder`: the folder's entries and those of each folder the
+# panel has open, with git's changes marked, and a bounded preview of one
+# file answered to the panel. The native provider in src/folder.rs. Moonframe's
+# own `files` provider lists one folder fixed at start, so it cannot follow
+# the focused pane.
+interval = 1.0
+kind     = "native"
+
+[settings]
+# The mods listened to. A mod names the folder to list and the file to
+# read, anywhere on the machine, so a mod from a package the user installed
+# is ignored unless its name is added here.
+readers = ["files"]

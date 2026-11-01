@@ -1,6 +1,7 @@
 -- Herdr's shell: the sidebar (spaces, then the agents in them and
 -- elsewhere) on the left, the chosen space's tabs and split panes in a card
--- on the right, a status line under both, and the peek sheet over them.
+-- on the right, the Files or Changes panel beside it when shown, a status
+-- line under all, and the peek sheet over them.
 -- The title bar is hidden: its traffic lights sit over the sidebar, or
 -- over the tab strip while the sidebar is folded.
 
@@ -19,6 +20,8 @@ local MENUS: { { title: string, items: { any } } } = {
 	} },
 	{ title = "View", items = {
 		{ label = "Show or Hide Sidebar", msg = "toggle-left", shortcut = "secondary-b" },
+		{ label = "Show or Hide Files", msg = { panel = "files" } },
+		{ label = "Show or Hide Changes", msg = { panel = "changes" } },
 		{ label = "Themes…", command = "show-themes" },
 		"-",
 		{ label = "Next Tab", msg = "next-tab", to = "workspace", shortcut = "secondary-alt-right" },
@@ -46,6 +49,18 @@ local MENUS: { { title: string, items: { any } } } = {
 	} },
 }
 
+-- The right-hand panels: mods/files and mods/changes.
+local PANELS: { [string]: boolean } = { files = true, changes = true }
+
+type State = {
+	left: boolean,
+	status: boolean,
+	-- The right-hand panel shown, "files" or "changes", if any.
+	panel: string?,
+	-- The last one shown, kept drawn while its pane slides away.
+	last: string?,
+}
+
 return mod {
 	window = { titlebar = "hidden", traffic_lights = { x = 16, y = 18 }, size = { width = 1400, height = 880 } },
 
@@ -60,15 +75,29 @@ return mod {
 
 	subscribe = { "herdr/layout" },
 
-	init = function(previous)
-		local state = { left = if previous then previous.left ~= false else true, status = true }
-		return state, { { to = "workspace", msg = { sidebar = state.left } } }
+	init = function(previous: any): (State, { any })
+		local state: State = {
+			left = if previous then previous.left ~= false else true,
+			status = true,
+			panel = if previous and PANELS[previous.panel] then previous.panel else nil,
+			last = if previous and PANELS[previous.last] then previous.last else nil,
+		}
+		return state, {
+			{ to = "workspace", msg = { sidebar = state.left } },
+			{ to = "workspace", msg = { panel = state.panel or false } },
+		}
 	end,
 
-	update = function(state, msg)
+	update = function(state: State, msg)
 		if type(msg) == "table" and msg.topic == "herdr/layout" then
 			state.status = not (msg.value and msg.value.status == "hidden")
 			return state
+		end
+		if type(msg) == "table" and PANELS[msg.panel] then
+			-- One panel at a time; its own button again hides it.
+			state.panel = if state.panel == msg.panel then nil else msg.panel
+			state.last = state.panel or state.last
+			return state, { { to = "workspace", msg = { panel = state.panel or false } } }
 		end
 		if msg == "toggle-left" then
 			state.left = not state.left
@@ -78,12 +107,25 @@ return mod {
 		end
 	end,
 
-	view = function(state)
+	view = function(state: State)
+		local panel: string? = state.panel or state.last
 		local body = ui.hsplit {
 			id = "body",
 			divider = false,
 			ui.pane { size = 268, min = 210, max = 420, fixed = true, visible = state.left, class = "side", ui.mount "sidebar" },
 			ui.pane { class = "middle", ui.mount "workspace" },
+			-- Each panel is an instance, so a hidden one sleeps: it neither
+			-- runs nor asks its provider for anything.
+			ui.pane {
+				size = 368,
+				min = 280,
+				max = 900,
+				fixed = true,
+				lazy = true,
+				visible = state.panel ~= nil,
+				surface = "background",
+				panel and ui.mount { panel :: string, id = "right" },
+			},
 		}
 		return ui.column {
 			grow = true,
