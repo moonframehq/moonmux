@@ -13,7 +13,7 @@ type State = {
 	status: string,
 }
 
-local DEFAULTS: State = { tabs = "pills", headers = "split", status = "shown" }
+local DEFAULTS: State = { tabs = "pills", headers = "always", status = "shown" }
 
 local function announce(state: State)
 	return { to = "topic:herdr/layout", msg = { tabs = state.tabs, headers = state.headers, status = state.status } }
@@ -74,9 +74,9 @@ return mod {
 				{ id = "underline", label = "Underline" },
 				{ id = "cards", label = "Cards" },
 			}),
-			choice("Pane headers", "A title row over each pane: its agent, address and buttons.", "headers", state.headers, {
-				{ id = "split", label = "When split" },
+			choice("Pane headers", "A title row over each pane: its program, folder and buttons.", "headers", state.headers, {
 				{ id = "always", label = "Always" },
+				{ id = "split", label = "When split" },
 				{ id = "never", label = "Never" },
 			}),
 			choice("Status line", "herdr-core and agent counts under the window.", "status", state.status, {

@@ -12,16 +12,25 @@
 //!
 //! ```text
 //! { ok, error, core = { name, version },
-//!   terminals = { { address, name, agent, cwd, status, turn, ours, pane, is_agent } },
+//!   terminals = { { address, name, agent, program, program_key, cwd, status,
+//!                   turn, ours, pane, is_agent } },
 //!   counts = { live, agents, working, blocked, done },
 //!   ended = { "p3", ... },   -- this app's panes whose shell exited
+//!   programs = { { key, name, installed } },   -- the agents "+" can start
 //!   peek = { address, text } }
 //! ```
+//!
+//! A terminal's `program` is what to call it (`Claude Code`, `zsh`), and
+//! `program_key` the key its icon is drawn by (`claude`, `shell`, or `""`
+//! for one the app does not know): see programs.rs.
 //!
 //! What it takes: `{ watch = "t7" }` (publish that terminal's screen as
 //! `peek` each tick; `""` stops), `{ send = "t7", text }`,
 //! `{ keys = "t7", key = "enter" }`, `{ interrupt = "t7" }`,
-//! `{ close_panes = "p1,p4" }` (end the shells of those panes of this app).
+//! `{ close_panes = "p1,p4" }` (end the shells of those panes of this app),
+//! `{ start = "p3", program = "claude" }` (type a startable agent's command
+//! into that pane's new shell, once: the terminal is labelled first, and a
+//! labelled one is never typed into again, across reloads and launches).
 //! Actions are answered with `{ reply = <action>, address, ok, error }`.
 //!
 //! These reach any terminal in herdr-core, not only this app's: a peek
@@ -32,11 +41,7 @@
 use {
     moonframe::{Data, Handle, Native},
     serde_json::{Value, json},
-    std::{
-        collections::HashMap,
-        path::{Path, PathBuf},
-        process::Command,
-    },
+    std::{collections::HashMap, path::PathBuf, process::Command},
 };
 
 /// The label herdr-core keeps the owning app's name in.
@@ -49,6 +54,11 @@ const PANE_MOD: &str = "pane#";
 const SERVER_EVERY: u64 = 30;
 /// Lines of history above the screen a peek shows.
 const PEEK_LINES: &str = "60";
+/// The label marking a pane's terminal as given its agent: `start` types
+/// into a terminal only while it has none.
+const START_LABEL: &str = "herdr-moonframe-start";
+/// Ticks between looks for installed agents.
+const PROGRAMS_EVERY: u64 = 10;
 
 /// Programs herdr-core names that are coding agents, as it reports them.
 const AGENTS: &[&str] = &[
@@ -77,6 +87,8 @@ struct Labels {
     ours: bool,
     /// The pane instance it is drawn in, for one of ours.
     pane: String,
+    /// The agent `start` typed into it, for one of ours.
+    started: String,
 }
 
 pub(crate) struct Core {
@@ -88,6 +100,9 @@ pub(crate) struct Core {
     watching: String,
     /// The server's name and version, looked at now and then.
     server: Value,
+    /// The startable agents and whether each is installed, looked at now
+    /// and then.
+    programs: Value,
     ticks: u64,
     /// What was last published, so an unchanged tick redraws nothing.
     last: Value,
@@ -102,6 +117,7 @@ impl Core {
             labels: HashMap::new(),
             watching: String::new(),
             server: Value::Null,
+            programs: Value::Null,
             ticks: 0,
             last: Value::Null,
             writers: Vec::new(),
@@ -156,6 +172,9 @@ impl Core {
                 "version": status.get("version").and_then(Value::as_str).unwrap_or(""),
             });
         }
+        if self.ticks.is_multiple_of(PROGRAMS_EVERY) || self.programs.is_null() {
+            self.programs = crate::programs::installed();
+        }
         // Finished terminals too: a pane whose shell exited says so.
         let listed = match self.hc_json(&["ls", "--all", "--json"]) {
             Ok(listed) => listed,
@@ -196,6 +215,7 @@ impl Core {
             "counts": counts(&terminals),
             "terminals": terminals,
             "ended": ended,
+            "programs": self.programs,
         });
         if !self.watching.is_empty() {
             let watching = self.watching.clone();
@@ -239,26 +259,65 @@ impl Core {
             let result = self.close_panes(&panes);
             return Some(("close_panes", panes, result));
         }
+        if let Some(pane) = field("start") {
+            let result = self.start(&pane, &field("program").unwrap_or_default());
+            return Some(("start", pane, result));
+        }
         None
     }
 
-    /// Ends the shells of this app's panes `panes` (`p1,p4`): closing a
-    /// pane ends what runs in it, as closing the window does not.
-    fn close_panes(&mut self, panes: &str) -> Result<String, String> {
-        let panes: Vec<&str> = panes.split(',').filter(|pane| !pane.is_empty()).collect();
+    /// The live terminals of this app (the label says so; `labels_of`
+    /// tells which pane each is).
+    fn our_terminals(&self) -> Result<Vec<String>, String> {
         let listed = self.hc_json(&[
             "ls",
             "--json",
             "--label",
             &format!("{APP_LABEL}={}", crate::NAME),
         ])?;
-        let addresses: Vec<String> = listed
+        Ok(listed
             .get("terminals")
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
             .map(|terminal| text(terminal, "address"))
-            .collect();
+            .collect())
+    }
+
+    /// Types the startable agent `key`'s command into the new shell of this
+    /// app's pane `pane`, once: the terminal is labelled before it is typed
+    /// into, and a labelled terminal is left alone, so neither a message
+    /// sent twice nor a reload starts a second agent.
+    fn start(&mut self, pane: &str, key: &str) -> Result<String, String> {
+        let program = crate::programs::startable(key)
+            .ok_or_else(|| format!("`{key}` is not an agent this app starts"))?;
+        let found = crate::programs::locate(program.run)
+            .ok_or_else(|| format!("{} is not installed", program.name))?;
+        let mut address = None;
+        for candidate in self.our_terminals()? {
+            if self.labels_of(&candidate).pane == pane {
+                address = Some(candidate);
+                break;
+            }
+        }
+        let address = address.ok_or_else(|| format!("pane {pane} has no live terminal"))?;
+        if !self.labels_of(&address).started.is_empty() {
+            return Ok("already started".to_owned());
+        }
+        self.hc(&["label", &address, &format!("{START_LABEL}={key}")])?;
+        if let Some(labels) = self.labels.get_mut(&address) {
+            labels.started = key.to_owned();
+        }
+        let path = std::env::var_os("PATH");
+        let command = crate::programs::command_line(program, &found, path.as_deref());
+        self.hc(&["send", &address, &command])
+    }
+
+    /// Ends the shells of this app's panes `panes` (`p1,p4`): closing a
+    /// pane ends what runs in it, as closing the window does not.
+    fn close_panes(&mut self, panes: &str) -> Result<String, String> {
+        let panes: Vec<&str> = panes.split(',').filter(|pane| !pane.is_empty()).collect();
+        let addresses = self.our_terminals()?;
         let mut problems = Vec::new();
         for address in addresses {
             let labels = self.labels_of(&address);
@@ -381,13 +440,13 @@ fn labels_from(terminal: &Value) -> Labels {
             .unwrap_or("")
     };
     let ours = label(APP_LABEL) == crate::NAME;
+    if !ours {
+        return Labels::default();
+    }
     Labels {
         ours,
-        pane: if ours {
-            pane_of(label(KEY_LABEL))
-        } else {
-            String::new()
-        },
+        pane: pane_of(label(KEY_LABEL)),
+        started: label(START_LABEL).to_owned(),
     }
 }
 
@@ -420,10 +479,13 @@ fn is_agent(agent: &str, status: &str) -> bool {
 fn entry(terminal: &Value, labels: &Labels, home: &str) -> Value {
     let agent = text(terminal, "agent");
     let status = text(terminal, "status");
+    let (key, program) = crate::programs::program_of(&agent);
     json!({
         "address": text(terminal, "address"),
         "name": text(terminal, "name"),
         "cwd": tilde(&text(terminal, "cwd"), home),
+        "program": program,
+        "program_key": key,
         "agent": agent,
         "is_agent": is_agent(&agent, &status),
         "status": status,
@@ -474,19 +536,7 @@ fn find_hc() -> Option<PathBuf> {
     {
         return Some(bin);
     }
-    let on_path = std::env::var_os("PATH")
-        .into_iter()
-        .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
-        .map(|dir| dir.join("hc"))
-        .find(|candidate| candidate.is_file());
-    on_path.or_else(|| {
-        let home = std::env::var_os("HOME").map(PathBuf::from)?;
-        [".local/bin/hc", ".cargo/bin/hc"]
-            .iter()
-            .map(|relative| home.join(relative))
-            .chain([Path::new("/opt/homebrew/bin/hc").to_owned()])
-            .find(|candidate| candidate.is_file())
-    })
+    crate::programs::locate("hc")
 }
 
 #[cfg(test)]
@@ -509,9 +559,19 @@ mod tests {
             labels_from(&ours),
             Labels {
                 ours: true,
-                pane: "p3".into()
+                pane: "p3".into(),
+                started: String::new(),
             }
         );
+        let started = json!({ "labels": {
+            "moonframe-app": "herdr-moonframe",
+            "moonframe": "pane#p4/term",
+            "herdr-moonframe-start": "claude",
+        } });
+        assert_eq!(labels_from(&started).started, "claude");
+        // Another app's label never counts as started here.
+        let theirs_started = json!({ "labels": { "herdr-moonframe-start": "claude" } });
+        assert_eq!(labels_from(&theirs_started), Labels::default());
         let theirs = json!({ "labels": { "moonframe-app": "moonframe-sessions", "moonframe": "pane#p3/term" } });
         assert_eq!(labels_from(&theirs), Labels::default());
         assert_eq!(labels_from(&json!({})), Labels::default());
@@ -543,6 +603,7 @@ mod tests {
         let ours = Labels {
             ours: true,
             pane: "p1".into(),
+            started: String::new(),
         };
         let entries: Vec<Value> = listed
             .iter()
@@ -550,6 +611,10 @@ mod tests {
             .collect();
         assert_eq!(entries[0]["cwd"], "~/x");
         assert_eq!(entries[0]["is_agent"], false);
+        assert_eq!(entries[0]["program_key"], "shell");
+        assert_eq!(entries[0]["program"], "zsh");
+        assert_eq!(entries[1]["program_key"], "claude");
+        assert_eq!(entries[1]["program"], "Claude Code");
         assert_eq!(entries[1]["status"], "working");
         assert_eq!(entries[1]["pane"], "p1");
         assert_eq!(entries[2]["cwd"], "/srv");
@@ -583,6 +648,20 @@ mod tests {
         let live = [json!({ "pane": "p2" })];
         let finished = vec!["p3".to_owned(), "p2".to_owned(), "p3".to_owned()];
         assert_eq!(ended_panes(finished, &live), vec!["p3".to_owned()]);
+    }
+
+    #[test]
+    fn start_refuses_what_is_not_a_startable_agent() {
+        let mut core = Core {
+            hc: None,
+            ..Core::new()
+        };
+        let error = core.start("p1", "rm -rf ~").unwrap_err();
+        assert!(error.contains("not an agent"), "{error}");
+        let message = Data::map([("start", "p1".into()), ("program", "amp".into())]);
+        let (action, pane, result) = core.act(&message).unwrap();
+        assert_eq!((action, pane.as_str()), ("start", "p1"));
+        assert!(result.is_err());
     }
 
     #[test]
