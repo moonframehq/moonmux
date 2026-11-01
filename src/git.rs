@@ -11,6 +11,7 @@ use {
     crate::core::new_command,
     moonframe::Data,
     std::{
+        ffi::OsString,
         io::Read,
         path::{Component, Path, PathBuf},
         process::Stdio,
@@ -46,13 +47,25 @@ pub(crate) struct Output {
 /// anywhere included, so its own config must not run programs: the filter
 /// drivers it names (`filter.<x>.clean`, `smudge`, `process`, which `git
 /// status` runs on changed files) are emptied, which git takes as none.
+/// When they cannot all be found, nothing runs.
 pub(crate) fn read(root: &Path, args: &[&str], limit: usize) -> Result<Output, String> {
-    run(root, &neutral_filters(root), args, limit)
+    let keys = filter_keys(root)?;
+    let (output, success) = run(root, &keys, args, limit)?;
+    if !output.truncated && !success {
+        let name = args.first().copied().unwrap_or("git");
+        return Err(format!("git {name} failed"));
+    }
+    Ok(output)
 }
 
-/// `-c <name>=` for each filter driver command the repository's config
-/// names. Reading config runs nothing.
-fn neutral_filters(root: &Path) -> Vec<String> {
+/// Bytes of config names read, and filter commands emptied, at most:
+/// past either the read is refused rather than left partly guarded.
+const FILTER_BYTES: usize = 64 * 1024;
+const MAX_FILTERS: usize = 256;
+
+/// Every filter driver command key git's config names here, exactly as git
+/// prints them. Reading config runs nothing.
+fn filter_keys(root: &Path) -> Result<Vec<OsString>, String> {
     let args = [
         "config",
         "-z",
@@ -60,36 +73,87 @@ fn neutral_filters(root: &Path) -> Vec<String> {
         "--get-regexp",
         r"^filter\..*\.(clean|smudge|process)$",
     ];
-    let Ok(output) = run(root, &[], &args, 64 * 1024) else {
-        // None set (git config exits 1), or no repository.
-        return Vec::new();
-    };
-    output
+    let (output, success) = run(root, &[], &args, FILTER_BYTES)?;
+    if output.truncated {
+        return Err("too many git filters to switch off".to_owned());
+    }
+    if !success {
+        // `git config --get-regexp` exits 1 when nothing matches, and
+        // prints nothing; any other failure prints nothing too, so a
+        // failed read is told apart by trying again with a name that is
+        // always set.
+        return if output.bytes.is_empty() && config_readable(root) {
+            Ok(Vec::new())
+        } else {
+            Err("cannot read git's config to switch off its filters".to_owned())
+        };
+    }
+    let keys: Vec<OsString> = output
         .bytes
         .split(|byte| *byte == 0)
-        .filter(|name| !name.is_empty())
-        .flat_map(|name| {
-            [
-                "-c".to_owned(),
-                format!("{}=", String::from_utf8_lossy(name).trim()),
-            ]
-        })
-        .collect()
+        .filter(|key| !key.is_empty())
+        .map(os_key)
+        .collect::<Option<_>>()
+        .ok_or("a git filter has a name that cannot be switched off")?;
+    if keys.len() > MAX_FILTERS {
+        return Err("too many git filters to switch off".to_owned());
+    }
+    Ok(keys)
 }
 
-fn run(root: &Path, overrides: &[String], args: &[&str], limit: usize) -> Result<Output, String> {
+/// Whether git can read its config here at all: `--list` succeeds even
+/// when it is empty.
+fn config_readable(root: &Path) -> bool {
+    run(root, &[], &["config", "-z", "--list"], FILTER_BYTES).is_ok_and(|(_, success)| success)
+}
+
+/// A config key as git printed it, passed on unchanged; one with a newline
+/// (which no config file can hold) is refused.
+fn os_key(key: &[u8]) -> Option<OsString> {
+    if key.contains(&b'\n') {
+        return None;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        Some(std::ffi::OsStr::from_bytes(key).to_owned())
+    }
+    #[cfg(not(unix))]
+    {
+        std::str::from_utf8(key).ok().map(OsString::from)
+    }
+}
+
+/// Runs git for a read; what it printed, and whether it succeeded.
+///
+/// `empty` keys are set to `""` through `GIT_CONFIG_COUNT` and
+/// `GIT_CONFIG_KEY_<n>`/`GIT_CONFIG_VALUE_<n>`, which take a key whole: no
+/// `=` in it is ever split, as `-c key=value` would.
+fn run(
+    root: &Path,
+    empty: &[OsString],
+    args: &[&str],
+    limit: usize,
+) -> Result<(Output, bool), String> {
     let name = args.first().copied().unwrap_or("git");
-    let mut child = new_command("git")
+    let mut command = new_command("git");
+    command
         .arg("-C")
         .arg(root)
         .args(READ)
-        .args(overrides)
         .args(args)
         .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_CONFIG_COUNT", empty.len().to_string())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         // Never read: a full pipe would stall git while stdout is read.
-        .stderr(Stdio::null())
+        .stderr(Stdio::null());
+    for (index, key) in empty.iter().enumerate() {
+        command
+            .env(format!("GIT_CONFIG_KEY_{index}"), key)
+            .env(format!("GIT_CONFIG_VALUE_{index}"), "");
+    }
+    let mut child = command
         .spawn()
         .map_err(|error| format!("git {name}: {error}"))?;
     let mut bytes = Vec::new();
@@ -108,10 +172,7 @@ fn run(root: &Path, overrides: &[String], args: &[&str], limit: usize) -> Result
     let status = child
         .wait()
         .map_err(|error| format!("git {name}: {error}"))?;
-    if !truncated && !status.success() {
-        return Err(format!("git {name} failed"));
-    }
-    Ok(Output { bytes, truncated })
+    Ok((Output { bytes, truncated }, status.success()))
 }
 
 /// The top folder of the repository `dir` is in, if any.
@@ -407,6 +468,65 @@ pub(crate) mod tests {
         )
         .unwrap();
         assert!(!marker.exists(), "a repository's own program ran");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_filter_named_with_an_equals_sign_is_switched_off_too() {
+        let dir = tempdir();
+        let marker = dir.join("ran");
+        let git = |args: &[&str]| {
+            assert!(
+                new_command("git")
+                    .arg("-C")
+                    .arg(&dir)
+                    .args(args)
+                    .output()
+                    .unwrap()
+                    .status
+                    .success()
+            );
+        };
+        git(&["init", "-q"]);
+        // As `-c filter.a=b.clean=`, git would read the key `filter.a` and
+        // leave this one on.
+        git(&[
+            "config",
+            "filter.a=b.clean",
+            &format!("touch '{}'; cat", marker.display()),
+        ]);
+        std::fs::write(dir.join(".gitattributes"), "*.txt filter=a=b\n").unwrap();
+        std::fs::write(dir.join("a.txt"), "one\n").unwrap();
+        git(&["-c", "filter.a=b.clean=cat", "add", "-A"]);
+        std::fs::write(dir.join("a.txt"), "two\n").unwrap();
+        let _ = std::fs::remove_file(&marker);
+        // The filter is live: plain git runs it.
+        git(&["status", "--porcelain"]);
+        assert!(marker.exists(), "the test's filter never runs");
+        std::fs::remove_file(&marker).unwrap();
+        read(&dir, &["status", "--porcelain=v1", "-z"], 1 << 20).unwrap();
+        assert!(!marker.exists(), "a repository's own filter ran");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn unreadable_config_refuses_the_read() {
+        let dir = tempdir();
+        let git = |args: &[&str]| {
+            assert!(
+                new_command("git")
+                    .arg("-C")
+                    .arg(&dir)
+                    .args(args)
+                    .output()
+                    .unwrap()
+                    .status
+                    .success()
+            );
+        };
+        git(&["init", "-q"]);
+        std::fs::write(dir.join(".git/config"), "[core\nbroken").unwrap();
+        assert!(read(&dir, &["status", "--porcelain=v1", "-z"], 1 << 20).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
