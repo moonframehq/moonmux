@@ -8,6 +8,9 @@ by Luau in `app/`, and its terminals run in
 [herdr-core](https://github.com/herdrdev/herdr-core), so they keep running
 when the window closes.
 
+![Herdr on Moonframe: three spaces in the sidebar, a tab split into three
+herdr-core terminals, and the status line](docs/screenshots/herdr.png)
+
 - **Spaces** hold work in one folder; each has **tabs**, and each tab splits
   into **panes** (right or down), each a live shell. An unnamed space or tab
   follows what runs in it.
