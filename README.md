@@ -5,8 +5,9 @@
 A desktop app for terminals and coding agents, built on
 [Moonframe](https://github.com/penso/moonframe): its whole window is laid out
 by Luau in `app/`, and its terminals run in
-[herdr-core](https://github.com/herdrdev/herdr-core), so they keep running
-when the window closes.
+[herdr-core](https://github.com/herdrdev/herdr-core) or in
+[tmux](https://github.com/tmux/tmux), so they keep running when the window
+closes.
 
 ![Herdr on Moonframe: three spaces in the sidebar, a tab split into three
 herdr-core terminals, and the status line](docs/screenshots/herdr.png)
@@ -16,18 +17,24 @@ herdr-core terminals, and the status line](docs/screenshots/herdr.png)
   follows what runs in it.
 - **Agents** in your panes show in the sidebar as Working, Needs you, Done
   or Idle; click one to jump to its pane. Agents running **elsewhere** in
-  herdr-core (other apps, `hc run`, workers) are listed too: click to
-  **peek** at their screen and answer them (text, Enter, Esc, interrupt).
+  herdr-core (other apps, `hc run`, workers) or in your own tmux sessions
+  are listed too: click to **peek** at their screen and answer them (text,
+  Enter, Esc, interrupt).
+- **Terminals**, in Settings, picks where new panes run: Auto (herdr-core
+  when installed, else tmux), herdr-core or tmux. A pane stays on the
+  backend it opened on, through relaunches; its header names it.
 - **Layout** and **Themes**, top right, change the tab style, the pane
-  headers, the status line and the colours; the status line shows
-  herdr-core's version and what needs you.
+  headers, the status line and the colours; the status line shows the
+  backends' versions and what needs you.
 
 ## Install
 
 Download the latest [release](https://github.com/penso/herdr-moonframe/releases):
 the macOS disk image (Apple Silicon and Intel), or the Linux or Windows
 archive. Herdr needs [herdr-core](https://github.com/herdrdev/herdr-core)
-(`hc`) installed; see its README for how.
+(`hc`; see its README for how) or tmux (`brew install tmux`,
+`apt install tmux`) installed. With tmux, its terminals live on a server of
+their own: `tmux -L herdr-moonframe ls`.
 
 Every release is signed with Sigstore and carries GitHub attestations; see
 [verifying a download](docs/releasing.md#verifying-a-download).
@@ -50,12 +57,15 @@ Right-click a space or tab to rename it.
 
 ## Build from source
 
-Needs herdr-core, and Rust (see `rust-toolchain.toml`).
+Needs herdr-core or tmux, and Rust (see `rust-toolchain.toml`). Each
+backend is a cargo feature, both on by default: build one alone with
+`cargo build --no-default-features --features tmux` (or `herdr-core`).
 
 ```sh
 just run      # the window; edits to app/ show live
 just check    # load the app headlessly
 just hooks    # once per clone: commit-message hook, Cargo.lock merges
+just features # clippy and tests with each backend alone
 just ci       # what CI runs (`just setup-ci` installs its tools)
 just bundle   # target/bundle/Herdr.app
 ```

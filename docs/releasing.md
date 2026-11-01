@@ -4,7 +4,7 @@
 
 | Workflow | Runs on | Does |
 | --- | --- | --- |
-| `ci.yml` | every pull request, pushes to `main` | zizmor on the workflows; commit subjects (the release notes); Rust and TOML formatting, file sizes, keep-sorted regions and strict Luau types; `Cargo.lock`, clippy, tests and the app's headless `--check` on macOS and Linux |
+| `ci.yml` | every pull request, pushes to `main` | zizmor on the workflows; commit subjects (the release notes); Rust and TOML formatting, file sizes, keep-sorted regions and strict Luau types; `Cargo.lock`, clippy and tests (with both terminal backends, then `herdr-core` alone and `tmux` alone, against a real tmux), and the app's headless `--check` on macOS and Linux |
 | `package.yml` | pull requests touching packaging, each release | optimized builds and the unsigned packages for every platform, each checked headlessly against the app compiled into it |
 | `supply-chain.yml` | dependency changes, weekly | cargo-deny: advisories, bans, licenses, sources |
 | `release.yml` | `just release` | the release, below |

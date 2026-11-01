@@ -33,7 +33,7 @@ tag=v$version
 source_sha=$(git rev-parse HEAD)
 git-cliff --config cliff.toml --tag "$tag" --output "$out/CHANGELOG.md"
 cat > "$out/RELEASE_NOTES.md" <<NOTES
-A $macos; x86_64 and ARM64 Linux tarballs; and $windows. Terminals run in herdr-core (\`hc\`), which must be installed. Source: $source_sha.
+A $macos; x86_64 and ARM64 Linux tarballs; and $windows. Terminals run in herdr-core (\`hc\`) when it is installed, else in tmux: one of them must be installed. Source: $source_sha.
 
 NOTES
 git-cliff --config cliff.toml --tag "$tag" --unreleased --strip header >> "$out/RELEASE_NOTES.md"
