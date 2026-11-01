@@ -13,6 +13,7 @@
 -- where it runs, the program, and how long it has been in its state. An
 -- agent's helpers (terminals it started, `parent` in herdr-core) show
 -- indented under it, and a parent counts as urgent as its most urgent one.
+-- Settings and Add machine sit at the bottom.
 
 local icon_button = use "icon-button"
 local status_dot = use "status-dot"
@@ -403,6 +404,9 @@ return mod {
 		[".sb-guide-arm"] = { border = "bottom", border_color = "border" },
 		[".sb-empty"] = { size = "small", color = "muted-foreground", padding = { 4, 8 } },
 		[".sb-problem"] = { size = "small", color = "danger", padding = { 4, 8 } },
+		[".sb-foot"] = { padding = { 6, 8, 10, 10 }, gap = 0, border = "top", border_color = "border" },
+		[".sb-foot-row"] = { color = "muted-foreground" },
+		[".sb-foot-row:hover"] = { color = "foreground" },
 	},
 
 	init = function(previous: State?): State
@@ -582,6 +586,27 @@ return mod {
 				section("agents", "Agents", #ours, sort_button(state.sort), list.ours),
 				list.count > 0 and section("elsewhere", "Elsewhere", list.count, nil, list.elsewhere),
 				problem,
+			},
+			ui.column {
+				class = "sb-foot",
+				shrink = false,
+				ui.row {
+					class = "sb-row sb-foot-row",
+					align = "center",
+					msg = "open",
+					to = "settings",
+					tooltip = "⌘,",
+					ui.icon { name = "settings" },
+					ui.text { "Settings" },
+				},
+				ui.row {
+					class = "sb-row sb-foot-row",
+					align = "center",
+					msg = { open = "machines" },
+					to = "settings",
+					ui.icon { name = "plus" },
+					ui.text { "Add machine" },
+				},
 			},
 		}
 	end,

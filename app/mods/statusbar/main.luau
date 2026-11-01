@@ -1,8 +1,9 @@
 -- The status line under the window: herdr-core's name and version and how
 -- many terminals it keeps, then how many agents work, wait on you, or
--- finished.
+-- finished, and at the right "⌘⇧P commands", which opens the palette.
 
 local status_dot = use "status-dot"
+local kbd = use "kbd"
 
 return mod {
 	title = "Status",
@@ -11,6 +12,8 @@ return mod {
 		[".st"] = { padding = { 0, 14 }, gap = 14 },
 		[".st-text"] = { size = "small", color = "muted-foreground" },
 		[".st-item"] = { gap = 6 },
+		[".st-commands"] = { padding = { 1, 6 }, radius = 6, gap = 6 },
+		[".st-commands:hover"] = { background = "list-hover" },
 	},
 
 	view = function(_state, app)
@@ -54,6 +57,15 @@ return mod {
 			count("blocked", "need you", counts.blocked),
 			count("working", "working", counts.working),
 			count("done", "done", counts.done),
+			ui.row {
+				class = "st-commands",
+				align = "center",
+				msg = "open",
+				to = "palette",
+				tooltip = "Every action, by name",
+				kbd { keys = "secondary-shift-p", small = true, plain = true },
+				ui.text { "commands", class = "st-text" },
+			},
 		}
 	end,
 }
