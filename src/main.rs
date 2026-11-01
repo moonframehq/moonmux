@@ -8,6 +8,7 @@
 //! to `app/` show live.
 
 mod core;
+mod programs;
 
 use {
     moonframe::Moonframe,
