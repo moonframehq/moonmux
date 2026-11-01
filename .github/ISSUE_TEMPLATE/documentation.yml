@@ -1,5 +1,5 @@
 name: Documentation Issue
-description: Report missing, incorrect, or unclear Herdr on Moonframe documentation
+description: Report missing, incorrect, or unclear Moonmux documentation
 title: "[Docs]: "
 labels:
   - documentation

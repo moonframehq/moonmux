@@ -1,7 +1,7 @@
 //! The tmux backend: what tmux runs for this user.
 //!
 //! Moonframe keeps each of this app's tmux terminals as a session on the
-//! app's own server (`tmux -L herdr-moonframe`), named after the terminal's
+//! app's own server (`tmux -L moonmux`), named after the terminal's
 //! key: the pane `p3`'s is `pane#p3/term`, so its session is
 //! `pane_p3+term` (with a `~hash` after it on newer Moonframes). Each tick
 //! lists the panes of that server and of every other server this user runs
@@ -11,7 +11,7 @@
 //!
 //! A pane of ours seen running in this run whose session is gone has
 //! ended. `start` marks a session with the user option
-//! `@herdr-moonframe-start` before typing into it, and never types into a
+//! `@moonmux-start` before typing into it, and never types into a
 //! marked one.
 
 mod agents;
@@ -33,7 +33,7 @@ use {
 const PANE_SESSION_PREFIX: &str = "pane_";
 const PANE_SESSION_TERMINAL: &str = "+term";
 /// The session option marking a pane's terminal as given its agent.
-const START_OPTION: &str = "@herdr-moonframe-start";
+const START_OPTION: &str = "@moonmux-start";
 /// Ticks between looks for servers that started or stopped.
 const SERVERS_EVERY: u64 = 10;
 /// Lines of history above the screen a peek shows.

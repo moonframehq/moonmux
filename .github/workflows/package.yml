@@ -1,7 +1,7 @@
 name: Package
 
 # Builds every release package, unsigned, from optimized builds: the macOS
-# universal Herdr.app and disk image, Linux tarballs, Windows zips. The release
+# universal Moonmux.app and disk image, Linux tarballs, Windows zips. The release
 # workflow calls this for the bytes it signs and publishes; on its own it
 # runs when what the packages are made from changes, so a packaging mistake
 # fails the pull request rather than a release.
@@ -68,8 +68,8 @@ jobs:
       - name: Package the app and disk image
         run: |
           scripts/release/package-macos.sh dist \
-            target/aarch64-apple-darwin/release/herdr-moonframe \
-            target/x86_64-apple-darwin/release/herdr-moonframe
+            target/aarch64-apple-darwin/release/moonmux \
+            target/x86_64-apple-darwin/release/moonmux
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package-macos
@@ -107,7 +107,7 @@ jobs:
       - name: Build the optimized executable
         run: cargo build --locked --release --target "$TARGET"
       - name: Package the tarball
-        run: scripts/release/package-archive.sh "$TARGET" "target/$TARGET/release/herdr-moonframe" dist
+        run: scripts/release/package-archive.sh "$TARGET" "target/$TARGET/release/moonmux" dist
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package-${{ matrix.target }}
@@ -141,7 +141,7 @@ jobs:
       - name: Build the optimized executable
         run: cargo build --locked --release --target "$TARGET"
       - name: Package the zip
-        run: scripts/release/package-archive.sh "$TARGET" "target/$TARGET/release/herdr-moonframe.exe" dist
+        run: scripts/release/package-archive.sh "$TARGET" "target/$TARGET/release/moonmux.exe" dist
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package-${{ matrix.target }}

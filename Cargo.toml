@@ -1,10 +1,10 @@
 [package]
-description  = "Herdr on Moonframe: spaces, tabs and panes of terminals kept by herdr-core, and the agents in them"
+description  = "Moonmux: spaces, tabs and panes of terminals kept by herdr-core or tmux, and the agents in them"
 edition      = "2024"
 license      = "MIT"
-name         = "herdr-moonframe"
+name         = "moonmux"
 publish      = false
-repository   = "https://github.com/penso/herdr-moonframe"
+repository   = "https://github.com/penso/moonmux"
 rust-version = "1.99"
 version      = "0.1.0"
 

@@ -5,10 +5,10 @@
 -- layout button open it; `{ open = "machines" }` opens it on a page.
 --
 -- Look holds the layout choices (tab style, pane headers, status line),
--- kept on the topic `herdr/layout` as { tabs, headers, status }, which the
+-- kept on the topic `moonmux/layout` as { tabs, headers, status }, which the
 -- workspace and the shell draw to match. Terminals holds the backend new
 -- panes run on (Auto, herdr-core or tmux: only those built in and
--- installed, from `app.core.backends`), kept on the topic `herdr/backend`
+-- installed, from `app.core.backends`), kept on the topic `moonmux/backend`
 -- as { choice }, which the workspace reads when it opens a pane. Machines
 -- lists `app.core.machines` (`hc machine ls`), read-only.
 
@@ -50,11 +50,11 @@ local DONE = { label = "Done", msg = "close", variant = "primary" }
 local BACKENDS = { auto = true, ["herdr-core"] = true, tmux = true }
 
 local function announce(layout: Layout)
-	return { to = "topic:herdr/layout", msg = { tabs = layout.tabs, headers = layout.headers, status = layout.status } }
+	return { to = "topic:moonmux/layout", msg = { tabs = layout.tabs, headers = layout.headers, status = layout.status } }
 end
 
 local function announce_backend(choice: string)
-	return { to = "topic:herdr/backend", msg = { choice = choice } }
+	return { to = "topic:moonmux/backend", msg = { choice = choice } }
 end
 
 -- Opens on `page`, reading the machines again for their page.
@@ -71,7 +71,7 @@ end
 
 return mod {
 	title = "Settings",
-	subscribe = { "herdr/layout", "herdr/backend" },
+	subscribe = { "moonmux/layout", "moonmux/backend" },
 
 	styles = {
 		[".st-dialog"] = { padding = 0, radius = 12, clip = true, shadow = "large" },
@@ -122,13 +122,13 @@ return mod {
 		if type(msg) ~= "table" then
 			return
 		end
-		if msg.topic == "herdr/layout" then
+		if msg.topic == "moonmux/layout" then
 			-- What the topic keeps (saved, and the layout picker's before
 			-- it moved here) is the choice.
 			local value = msg.value or {}
 			state.layout = { tabs = value.tabs or DEFAULTS.tabs, headers = value.headers or DEFAULTS.headers, status = value.status or DEFAULTS.status }
 			return state
-		elseif msg.topic == "herdr/backend" then
+		elseif msg.topic == "moonmux/backend" then
 			local choice = msg.value and msg.value.choice
 			state.backend = if BACKENDS[choice] then choice else "auto"
 			return state
@@ -167,7 +167,7 @@ return mod {
 					rows = {
 						{
 							title = "Appearance",
-							description = "Herdr starts as your system is. Light and Dark last until you quit: Moonframe can't keep them yet, nor follow the system after launch.",
+							description = "Moonmux starts as your system is. Light and Dark last until you quit: Moonframe can't keep them yet, nor follow the system after launch.",
 							control = appearance { dark = app.dark },
 						},
 						{
@@ -237,7 +237,7 @@ return mod {
 			sections = {
 				{
 					title = "New panes",
-					description = "Panes keep running when Herdr closes, in herdr-core or in tmux. Auto picks herdr-core when it is installed, else tmux.",
+					description = "Panes keep running when Moonmux closes, in herdr-core or in tmux. Auto picks herdr-core when it is installed, else tmux.",
 					rows = {
 						{
 							title = "Run new panes on",
@@ -249,7 +249,7 @@ return mod {
 				},
 				{
 					title = "Backends",
-					description = "The ones this build of Herdr can use. Agents in both show in the sidebar: tmux's from this app's own server and your other tmux servers.",
+					description = "The ones this build of Moonmux can use. Agents in both show in the sidebar: tmux's from this app's own server and your other tmux servers.",
 					content = rows,
 				},
 			}
@@ -335,11 +335,11 @@ return mod {
 			local server = core and core.core
 			sections = {
 				{
-					title = "Herdr",
+					title = "Moonmux",
 					rows = {
 						{
-							title = `Herdr {(core and core.app_version) or ""}`,
-							description = "New versions are on the releases page. Herdr doesn't look for them itself.",
+							title = `Moonmux {(core and core.app_version) or ""}`,
+							description = "New versions are on the releases page. Moonmux doesn't look for them itself.",
 							control = ui.button { "Releases", icon = "external-link", small = true, variant = "outline", msg = "releases" },
 						},
 					},
@@ -353,7 +353,7 @@ return mod {
 							description = if not core then "Looking for herdr-core…"
 								elseif not server then "Not in use: herdr-core is not installed, or not part of this build."
 								elseif not core.ok then core.error
-								else "It runs your terminals, so they keep running through its updates and Herdr's.",
+								else "It runs your terminals, so they keep running through its updates and Moonmux's.",
 						},
 					},
 				},
@@ -365,7 +365,7 @@ return mod {
 					rows = {
 						{
 							title = "No telemetry",
-							description = "Herdr sends nothing about you or your use of it: no usage data, no crash reports, nothing from your terminals. It talks to herdr-core and tmux on this computer; herdr-core reaches your machines over ssh. Send feedback goes to the coding agent you pick, only when you send it.",
+							description = "Moonmux sends nothing about you or your use of it: no usage data, no crash reports, nothing from your terminals. It talks to herdr-core and tmux on this computer; herdr-core reaches your machines over ssh. Send feedback goes to the coding agent you pick, only when you send it.",
 							control = ui.icon { name = "lock", tone = "success" },
 						},
 					},

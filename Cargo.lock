@@ -3353,15 +3353,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "herdr-moonframe"
-version = "0.1.0"
-dependencies = [
- "moonframe",
- "serde_json",
- "tracing",
-]
-
-[[package]]
 name = "herdr-protocol"
 version = "0.1.0"
 source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
@@ -4750,6 +4741,15 @@ source = "git+https://github.com/penso/moonframe?rev=8cb7b79f96a23a23d3098b2ba1b
 dependencies = [
  "alacritty_terminal 0.26.0",
  "portable-pty",
+ "tracing",
+]
+
+[[package]]
+name = "moonmux"
+version = "0.1.0"
+dependencies = [
+ "moonframe",
+ "serde_json",
  "tracing",
 ]
 

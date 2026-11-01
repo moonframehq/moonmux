@@ -1,4 +1,4 @@
-//! Herdr, on Moonframe: a desktop app for terminals and coding agents whose
+//! Moonmux, on Moonframe: a desktop app for terminals and coding agents whose
 //! whole window (spaces, tabs, split panes, the agents list) is laid out by
 //! the Luau in `app/`. Terminals run in herdr-core (`hc`), so they keep
 //! running when the window closes; Rust adds `app.core`, what herdr-core
@@ -15,10 +15,11 @@ use {
     std::{path::Path, process::ExitCode},
 };
 
-/// The app's name: its folders are `~/.config/herdr-moonframe` and
-/// `~/.cache/herdr-moonframe`, and the `moonframe-app` label herdr-core
+/// The app's name: changing it orphans running panes and loses saved
+/// spaces. Its folders are `~/.config/moonmux` and
+/// `~/.cache/moonmux`, and the `moonframe-app` label herdr-core
 /// keeps on its terminals.
-pub(crate) const NAME: &str = "herdr-moonframe";
+pub(crate) const NAME: &str = "moonmux";
 
 /// `app/`, compiled into the binary: what a copy installed anywhere runs.
 #[derive(moonframe::rust_embed::RustEmbed)]
@@ -47,8 +48,8 @@ fn from_checkout() -> bool {
 
 fn main() -> ExitCode {
     let app = Moonframe::new(NAME)
-        .title("Herdr")
-        .app_id("dev.penso.herdr-moonframe")
+        .title("Moonmux")
+        .app_id("dev.penso.moonmux")
         .version(env!("CARGO_PKG_VERSION"))
         .icon(include_bytes!("../app/icon.png"));
     let app = if from_checkout() {

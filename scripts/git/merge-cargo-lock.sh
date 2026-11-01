@@ -35,5 +35,5 @@ fi
 
 # The marker names the commit being merged into, so a hook can tell this
 # merge from a later one after an abort.
-git rev-parse --verify --quiet HEAD >"$(git rev-parse --git-path herdr-moonframe-cargo-lock-stale)" || true
+git rev-parse --verify --quiet HEAD >"$(git rev-parse --git-path moonmux-cargo-lock-stale)" || true
 echo "Cargo.lock: kept our side; it is rebuilt with Cargo before the merge commit." >&2

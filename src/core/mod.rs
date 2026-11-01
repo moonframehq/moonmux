@@ -77,7 +77,7 @@ use {
 };
 
 /// Where this app's releases are, for Settings > Updates.
-const RELEASES: &str = "https://github.com/penso/herdr-moonframe/releases";
+const RELEASES: &str = "https://github.com/penso/moonmux/releases";
 /// Ticks between looks for installed agents and backends.
 const PROGRAMS_EVERY: u64 = 10;
 /// Ticks between looks at herdr-core's machines.

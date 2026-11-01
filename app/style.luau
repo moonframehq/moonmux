@@ -1,4 +1,4 @@
--- Herdr's look: a soft window behind one card of terminals, quiet
+-- Moonmux's look: a soft window behind one card of terminals, quiet
 -- controls, round corners. Light first, with dark colours for each.
 return style {
 	font_size = 13,

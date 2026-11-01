@@ -1,4 +1,4 @@
--- The sidebar: the spaces (from the workspace's `herdr/workspace` topic),
+-- The sidebar: the spaces (from the workspace's `moonmux/workspace` topic),
 -- then every agent herdr-core and tmux run (`app.core`): first those in
 -- this app's panes, then those elsewhere (another app, `hc run`, an
 -- agent's workers, the user's own tmux sessions).
@@ -376,7 +376,7 @@ end
 
 return mod {
 	title = "Sidebar",
-	subscribe = { "herdr/workspace", "provider/core" },
+	subscribe = { "moonmux/workspace", "provider/core" },
 
 	styles = {
 		[".sb"] = { padding = { 0, 8, 8, 10 }, gap = 2 },
@@ -421,7 +421,7 @@ return mod {
 	end,
 
 	update = function(state: State, msg)
-		if type(msg) == "table" and msg.topic == "herdr/workspace" then
+		if type(msg) == "table" and msg.topic == "moonmux/workspace" then
 			state.workspace = msg.value
 			return state
 		elseif type(msg) == "table" and msg.topic == "provider/core" then

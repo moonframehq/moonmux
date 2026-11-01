@@ -1,6 +1,6 @@
-<p align="center"><img src="assets/icon.png" width="128" alt="Herdr on Moonframe"></p>
+<p align="center"><img src="assets/icon.png" width="128" alt="Moonmux"></p>
 
-# Herdr on Moonframe
+# Moonmux
 
 A desktop app for terminals and coding agents, built on
 [Moonframe](https://github.com/penso/moonframe): its whole window is laid out
@@ -9,7 +9,7 @@ by Luau in `app/`, and its terminals run in
 [tmux](https://github.com/tmux/tmux), so they keep running when the window
 closes.
 
-![Herdr on Moonframe: three spaces in the sidebar, a tab split into three
+![Moonmux: three spaces in the sidebar, a tab split into three
 herdr-core terminals, and the status line](docs/screenshots/herdr.png)
 
 - **Spaces** hold work in one folder; each has **tabs**, and each tab splits
@@ -29,12 +29,12 @@ herdr-core terminals, and the status line](docs/screenshots/herdr.png)
 
 ## Install
 
-Download the latest [release](https://github.com/penso/herdr-moonframe/releases):
+Download the latest [release](https://github.com/penso/moonmux/releases):
 the macOS disk image (Apple Silicon and Intel), or the Linux or Windows
-archive. Herdr needs [herdr-core](https://github.com/herdrdev/herdr-core)
+archive. Moonmux needs [herdr-core](https://github.com/herdrdev/herdr-core)
 (`hc`; see its README for how) or tmux (`brew install tmux`,
 `apt install tmux`) installed. With tmux, its terminals live on a server of
-their own: `tmux -L herdr-moonframe ls`.
+their own: `tmux -L moonmux ls`.
 
 Every release is signed with Sigstore and carries GitHub attestations; see
 [verifying a download](docs/releasing.md#verifying-a-download).
@@ -67,7 +67,7 @@ just check    # load the app headlessly
 just hooks    # once per clone: commit-message hook, Cargo.lock merges
 just features # clippy and tests with each backend alone
 just ci       # what CI runs (`just setup-ci` installs its tools)
-just bundle   # target/bundle/Herdr.app
+just bundle   # target/bundle/Moonmux.app
 ```
 
 Releases are cut with `just release`; see [docs/releasing.md](docs/releasing.md).

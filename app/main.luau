@@ -1,4 +1,4 @@
--- Herdr's shell: the sidebar (spaces, then the agents in them and
+-- Moonmux's shell: the sidebar (spaces, then the agents in them and
 -- elsewhere) on the left, the chosen space's tabs and split panes in a card
 -- on the right, a status line under both, and the peek sheet over them;
 -- over all of them Settings, the command palette and the Welcome.
@@ -50,7 +50,7 @@ local MENUS: { { title: string, items: { any } } } = {
 		{ label = "Zoom", command = "maximize" },
 	} },
 	{ title = "Help", items = {
-		{ label = "Welcome to Herdr", msg = "open", to = "welcome" },
+		{ label = "Welcome to Moonmux", msg = "open", to = "welcome" },
 	} },
 }
 
@@ -60,13 +60,13 @@ return mod {
 	about = {
 		version = "0.1",
 		description = "Terminals and coding agents in spaces, kept running by herdr-core or tmux.",
-		website = "https://github.com/penso/herdr-moonframe",
+		website = "https://github.com/penso/moonmux",
 		copyright = "MIT licensed",
 	},
 
 	menus = MENUS,
 
-	subscribe = { "herdr/layout" },
+	subscribe = { "moonmux/layout" },
 
 	init = function(previous)
 		local state = { left = if previous then previous.left ~= false else true, status = true }
@@ -76,7 +76,7 @@ return mod {
 	end,
 
 	update = function(state, msg)
-		if type(msg) == "table" and msg.topic == "herdr/layout" then
+		if type(msg) == "table" and msg.topic == "moonmux/layout" then
 			state.status = not (msg.value and msg.value.status == "hidden")
 			return state
 		end
