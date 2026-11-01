@@ -59,7 +59,7 @@ return mod {
 
 	about = {
 		version = "0.1",
-		description = "Terminals and coding agents in spaces, kept running by herdr-core.",
+		description = "Terminals and coding agents in spaces, kept running by herdr-core or tmux.",
 		website = "https://github.com/penso/herdr-moonframe",
 		copyright = "MIT licensed",
 	},

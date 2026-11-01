@@ -12,7 +12,7 @@ local PAGES = {
 	{
 		icon = "terminal",
 		title = "Herdr runs your terminals in the background",
-		text = "The terminals and agents you open here don't live in this window. They run in herdr-core, a small background program on your computer. Close Herdr, update it, or let it crash, and your agents keep working. Open it again and everything is where you left it, as long as the computer is on.",
+		text = "The terminals and agents you open here don't live in this window. They run in herdr-core, a small background program on your computer, or in tmux when herdr-core isn't installed. Close Herdr, update it, or let it crash, and your agents keep working. Open it again and everything is where you left it, as long as the computer is on.",
 	},
 	{
 		icon = "bot",

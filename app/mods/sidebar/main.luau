@@ -1,6 +1,7 @@
 -- The sidebar: the spaces (from the workspace's `herdr/workspace` topic),
--- then every agent herdr-core runs (`app.core`): first those in this app's
--- panes, then those elsewhere (another app, `hc run`, an agent's workers).
+-- then every agent herdr-core and tmux run (`app.core`): first those in
+-- this app's panes, then those elsewhere (another app, `hc run`, an
+-- agent's workers, the user's own tmux sessions).
 --
 -- An agent is Working, Blocked (it needs you), Done (it finished while you
 -- looked elsewhere) or Idle. A done agent you have looked at (its pane is
@@ -250,7 +251,7 @@ local function agents_list(ctx: Context): { ours: { any }, elsewhere: { any }, c
 		if mine then
 			return { focus = terminal.pane, address = terminal.address, turn = turn }, "Show its pane"
 		end
-		return { peek = terminal.address, turn = turn }, "Peek"
+		return { peek = terminal.address, turn = turn }, `Peek · {terminal.backend or ""} {terminal.target or ""}`
 	end
 
 	-- One agent: its icon, where it runs and its program, its age and status.
@@ -298,7 +299,7 @@ local function agents_list(ctx: Context): { ours: { any }, elsewhere: { any }, c
 			align = "center",
 			height = ROW,
 			msg = msg,
-			tooltip = if tip == "Peek" then "Peek at this helper" else tip,
+			tooltip = if string.sub(tip, 1, 4) == "Peek" then "Peek at this helper" else tip,
 			ui.row { gap = "none", align = "start", height = ROW, shrink = false, table.unpack(cells) },
 			ui.icon { name = (AGENT_ICONS[terminal.agent] or "terminal") :: any, size = "small", tone = "muted" },
 			ui.row { grow = true, ui.text { label, class = "sb-helper-name", truncate = true } },
