@@ -17,7 +17,7 @@ case "$(uname -s)" in
     Darwin)
         have brew || fail 'Homebrew is required: https://brew.sh'
         packages=()
-        for tool in actionlint zizmor cargo-deny git-cliff taplo jq; do
+        for tool in actionlint zizmor cargo-deny git-cliff taplo jq tmux; do
             have "$tool" || packages+=("$tool")
         done
         if ((${#packages[@]})); then
@@ -26,7 +26,7 @@ case "$(uname -s)" in
         ;;
     Linux)
         bash "$root/scripts/install-linux-deps.sh"
-        sudo apt-get install --no-install-recommends -y jq python3 pipx
+        sudo apt-get install --no-install-recommends -y jq python3 pipx tmux
         have zizmor || pipx install zizmor
         for crate in cargo-deny git-cliff taplo-cli; do
             binary=${crate%-cli}

@@ -1,7 +1,7 @@
 default:
     @just --list
 
-# Open Herdr: spaces of terminals kept by herdr-core, and the agents in them.
+# Open Herdr: spaces of terminals kept by herdr-core or tmux, and the agents in them.
 run *args:
     cargo run --release -- {{args}}
 
@@ -38,6 +38,13 @@ lint:
 test:
     cargo test --locked
 
+# Clippy and tests with each terminal backend alone, as CI runs them.
+features:
+    cargo clippy --locked --all-targets --no-default-features --features herdr-core -- -D warnings
+    cargo test --locked --no-default-features --features herdr-core
+    cargo clippy --locked --all-targets --no-default-features --features tmux -- -D warnings
+    cargo test --locked --no-default-features --features tmux
+
 check-file-size:
     bash scripts/check-file-size.sh
 
@@ -50,7 +57,7 @@ sort:
     python3 scripts/check-sorted.py --fix
 
 # What CI runs.
-ci: format-check check-file-size check-sorted lint test check types
+ci: format-check check-file-size check-sorted lint test features check types
 
 # Install the tools local CI-equivalent runs need, on macOS or Ubuntu.
 setup-ci:
