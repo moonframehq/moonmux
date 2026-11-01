@@ -14,6 +14,7 @@
 //! { ok, error, core = { name, version },
 //!   terminals = { { address, name, agent, cwd, status, turn, ours, pane, is_agent } },
 //!   counts = { live, agents, working, blocked, done },
+//!   ended = { "p3", ... },   -- this app's panes whose shell exited
 //!   peek = { address, text } }
 //! ```
 //!
@@ -155,7 +156,8 @@ impl Core {
                 "version": status.get("version").and_then(Value::as_str).unwrap_or(""),
             });
         }
-        let listed = match self.hc_json(&["ls", "--json"]) {
+        // Finished terminals too: a pane whose shell exited says so.
+        let listed = match self.hc_json(&["ls", "--all", "--json"]) {
             Ok(listed) => listed,
             Err(error) => {
                 return json!({ "ok": false, "error": error, "terminals": [], "counts": counts(&[]) });
@@ -175,20 +177,25 @@ impl Core {
             .map(str::to_owned)
             .collect();
         self.labels.retain(|address, _| live.contains(address));
-        let terminals: Vec<Value> = raw
-            .iter()
-            .map(|terminal| {
-                let address = text(terminal, "address");
-                let labels = self.labels_of(&address);
-                entry(terminal, &labels, &home)
-            })
-            .collect();
+        let mut terminals = Vec::new();
+        let mut finished = Vec::new();
+        for terminal in &raw {
+            let address = text(terminal, "address");
+            let labels = self.labels_of(&address);
+            if text(terminal, "state") == "live" {
+                terminals.push(entry(terminal, &labels, &home));
+            } else if labels.ours && !labels.pane.is_empty() {
+                finished.push(labels.pane);
+            }
+        }
+        let ended = ended_panes(finished, &terminals);
         let mut snapshot = json!({
             "ok": true,
             "error": "",
             "core": self.server,
             "counts": counts(&terminals),
             "terminals": terminals,
+            "ended": ended,
         });
         if !self.watching.is_empty() {
             let watching = self.watching.clone();
@@ -426,6 +433,19 @@ fn entry(terminal: &Value, labels: &Labels, home: &str) -> Value {
     })
 }
 
+/// The panes of this app whose shell finished and has not started again
+/// (Enter in the pane starts a new one, under the same key).
+fn ended_panes(mut finished: Vec<String>, live: &[Value]) -> Vec<String> {
+    finished.retain(|pane| {
+        !live
+            .iter()
+            .any(|terminal| terminal.get("pane").and_then(Value::as_str) == Some(pane.as_str()))
+    });
+    finished.sort();
+    finished.dedup();
+    finished
+}
+
 fn counts(terminals: &[Value]) -> Value {
     let with = |status: &str| {
         terminals
@@ -556,6 +576,13 @@ mod tests {
         let none = writers(&Data::Nil);
         assert!(none.is_empty());
         assert!(!may_act(&none, "peek"));
+    }
+
+    #[test]
+    fn a_pane_has_ended_until_its_shell_starts_again() {
+        let live = [json!({ "pane": "p2" })];
+        let finished = vec!["p3".to_owned(), "p2".to_owned(), "p3".to_owned()];
+        assert_eq!(ended_panes(finished, &live), vec!["p3".to_owned()]);
     }
 
     #[test]

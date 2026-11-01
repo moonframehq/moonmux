@@ -419,7 +419,12 @@ return mod {
 			else "ws-tab"
 		local headers = layout.headers or "split"
 
-		-- What herdr-core says runs in each of our panes.
+		-- What herdr-core says runs in each of our panes, and which panes'
+		-- shells exited.
+		local ended = {}
+		for _, pane in (app.core and app.core.ended) or {} do
+			ended[pane] = true
+		end
 		local by_pane = {}
 		for _, terminal in (app.core and app.core.terminals) or {} do
 			if terminal.ours and terminal.pane ~= "" then
@@ -429,7 +434,9 @@ return mod {
 
 		local function pane_label(pane: string): string
 			local terminal = by_pane[pane]
-			if not terminal then
+			if not terminal and ended[pane] then
+				return "The shell exited: click the pane and press Enter"
+			elseif not terminal then
 				return "Starting…"
 			elseif terminal.is_agent then
 				return `{terminal.agent} · {base(terminal.cwd)}`
