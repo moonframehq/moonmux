@@ -1,0 +1,8 @@
+Herdr on Moonframe
+Copyright (c) 2026 Fabien Penso. Licensed under the MIT License (LICENSE).
+
+The app icon (assets/icon.svg, assets/icon.png, app/icon.png) draws the ram
+from Herdr's logo, https://github.com/herdrdev/herdr/blob/HEAD/assets/logo.svg,
+by the Herdr authors, licensed under the Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0. The path is adapted (scaled,
+placed, recoloured) from herdr-app's icon.

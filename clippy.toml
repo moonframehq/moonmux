@@ -1,0 +1,11 @@
+# Reference: https://doc.rust-lang.org/nightly/clippy/lint_configuration.html
+
+avoid-breaking-exported-api  = false
+too-many-arguments-threshold = 999
+type-complexity-threshold    = 999
+
+disallowed-methods = [
+  # On Windows a console child (hc) can open a window of its own unless
+  # created without one; core::new_command sets that once.
+  { path = "std::process::Command::new", reason = "use core::new_command, which opens no console window on Windows" },
+]

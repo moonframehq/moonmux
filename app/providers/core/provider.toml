@@ -1,0 +1,8 @@
+# herdr-core, shared as `app.core`: the native provider in src/core.rs. It
+# lists what herdr-core runs (`hc ls`) each second, says which terminals
+# are this app's panes and which agents need you, and sends text and keys
+# to a terminal when a mod asks.
+interval = 1.0
+kind     = "native"
+# The sidebar and status bar read it from the first frame.
+start = "always"

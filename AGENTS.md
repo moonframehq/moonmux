@@ -1,0 +1,166 @@
+# AGENTS.md
+
+Engineering guidance for agents working in this repository. Read this alongside
+`README.md`, `docs/releasing.md`, and the code before making changes.
+
+## Priorities
+
+- Keep changes small, explicit, and focused on the root cause.
+- Preserve user and other agents' changes. Never revert unrelated edits.
+- Prefer existing standard traits and generics over unnecessarily concrete APIs.
+- Protect bounded resource use and UI responsiveness.
+- Add regression tests for changed behavior and report what was actually verified.
+- Never modify herdr-core or Moonframe from here. herdr-core is owned by an
+  external team; Moonframe is its own repository, pinned by `rev`. Sibling
+  checkouts are read-only references. Propose an upstream change only when
+  genuinely justified.
+
+## Architecture
+
+herdr-moonframe is Herdr (a desktop app for terminals and coding agents, like
+herdr-app) built on the Moonframe library. herdr-core (`hc`) owns every
+terminal process; this app arranges them and shows the agents. Closing the
+window must leave herdr-core and its terminals running.
+
+| Location | Responsibility |
+| --- | --- |
+| `src/main.rs` | `Moonframe::new("herdr-moonframe")`: `app/` read live from the checkout, else compiled in (`AppFiles`) |
+| `src/core.rs` | The `core` native provider (`app.core`): `hc ls` each second, labels via `hc get`, a peek (`hc read`), and actions (send, keys, interrupt, kill, close_panes); `new_command` for every child process |
+| `app/main.luau` | The shell: sidebar, workspace card, status line, peek sheet; menus and their shortcuts |
+| `app/mods/workspace` | Spaces, their tabs, and each tab's tree of split panes, all in its state; the tab strip is the title bar. Publishes `topic:herdr/workspace` |
+| `app/mods/pane` | One instance per pane (`pane#p3`), each owning one terminal (`pane#p3/term`) |
+| `app/mods/sidebar` | Spaces, then agents in our panes, then agents elsewhere |
+| `app/mods/peek`, `app/mods/statusbar` | The peek sheet and the status line |
+| `app/mods/layout` | The layout picker (tab style, pane headers, status line), opened in its own window; publishes `topic:herdr/layout` |
+| `app/style.luau` | The look, merged over Moonframe's stylesheet |
+| `scripts/release`, `.github/workflows` | Packaging, signing and releasing (`docs/releasing.md`) |
+
+- **Layout and look live in Luau.** Change `app/` for anything on screen; it
+  reloads live. Add Rust only for what Luau can't do (talking to herdr-core).
+- **Which pane runs which agent:** Moonframe labels each terminal it starts in
+  herdr-core with `moonframe-app=herdr-moonframe` and `moonframe=<owner>/<id>`.
+  Because every pane is its own `pane` instance, the owner is `pane#<id>`, and
+  `core.rs` (`pane_of`) reads the pane id back. Keep the mod name `pane`, its
+  terminal id `term`, and `PANE_MOD` in step.
+- **The provider's contract:** what `Core::snapshot` publishes is `app.core`;
+  what `Core::receive` takes is what mods send `provider:core`. Change both
+  sides together, and the doc comment at the top of `core.rs`.
+- Moonframe caps terminals at 8 per mod (one instance is one owner) and 32 per
+  app run, closed ones included.
+- **File size limit: 1,000 lines.** No Rust, Python, shell, or Swift file may
+  exceed it, tests included; `just check-file-size` enforces it in `just ci`
+  and CI. There is no allowlist: split the file by responsibility instead.
+- Keep APIs narrow: private by default, `pub(crate)` only where needed.
+- Do not add a crate, runtime, or speculative abstraction without a concrete need.
+
+## Parallel Pull Requests
+
+- Do not assert hard-coded totals for lists that grow. Compare against the
+  source list, or assert uniqueness or membership.
+- Keep lists whose order carries no meaning (such as `AGENTS` in `core.rs`)
+  sorted between `// keep-sorted start` and `// keep-sorted end` markers.
+  `just check-sorted` (part of `just ci`) enforces them and `just sort` fixes
+  them. Never mark a list whose order is shown to users.
+- `just hooks` enables `rerere` and a `Cargo.lock` merge driver that keeps one
+  side and has Cargo rebuild it before the merge commit. After a merge whose
+  only conflict was the lockfile, run `git commit --no-edit` to finish it.
+  Cherry-picks and rebases stop with `Cargo.lock` conflicted: run
+  `cargo metadata`, `git add Cargo.lock`, and continue.
+
+## Luau Conventions
+
+- Use the Moonframe skills (`.claude/skills/moonframe`,
+  `.claude/skills/moonframe-components`) and prefer an existing component.
+- State and messages are plain data. Reset transient keys (dialogs, errors)
+  in `init`.
+- Keep each mod's reads of `app.core` narrow, and keep `core.rs`'s output
+  stable: it publishes only when something changed.
+- `just check` loads every module headlessly; `just types` type-checks them
+  in strict mode. Both run in `just ci`.
+
+## Rust Conventions
+
+- Require only the capabilities an operation uses: `&str`, `&Path`, slices,
+  `impl AsRef<OsStr>` over owned or concrete types.
+- Use enums for closed alternatives; parse strings at boundaries.
+- No `unwrap()` or `expect()` in production (the lints deny them); test-only
+  allowances stay scoped to tests. No `unsafe`.
+- Start child processes with `core::new_command`, never `Command::new`
+  (clippy rejects it): on Windows a console child opens a window otherwise.
+- Never block the UI thread. Native providers run on their own thread; keep
+  `hc` calls there.
+- Treat terminal content and herdr-core's output as untrusted data.
+- Moonframe is pinned by `rev`, with only the features this app uses (`acp`
+  for Send feedback, `alacritty`, `herdr-core`, `tokio`). Moving it is a
+  manual, tested change; Dependabot ignores it.
+- Avoid unrelated lockfile upgrades. Use `--locked` for reproducible checks.
+
+## Changelog
+
+Users learn what changed from the GitHub release body, generated from git
+history by `git-cliff` (`cliff.toml`) rather than written by hand. The release
+workflow's `changelog` job runs `scripts/release/generate-changelog.sh`, and
+`publish` passes its `RELEASE_NOTES.md` to `gh release create --notes-file`.
+`CHANGELOG.md` is generated for each release and is not tracked in git.
+
+- Commit subjects are the changelog entries, verbatim apart from a capitalized
+  first letter. Write the subject for a user reading a release page, and put
+  rationale in the body; only the first line is published.
+- The type chooses the section: `feat` becomes Added, `fix` becomes Fixed,
+  `perf`/`refactor`/`revert` become Changed, `docs` becomes Documentation, and
+  a `(security)` scope becomes Security. A scope prints as a `[scope]` prefix.
+- `chore`, `ci`, `build`, `style`, `test`, and merge commits never reach users,
+  so nothing user-visible may ship under those types. A breaking change
+  (`type!:` or a `BREAKING CHANGE:` footer) is always published.
+- These rules are enforced. `just hooks` installs a `commit-msg` hook that
+  refuses a bad subject, and CI's `commits` job checks every commit in a pull
+  request. Run `just hooks` once per clone, and `just check-commits` to check
+  a branch by hand. Preview the notes with `just changelog-unreleased`.
+
+## Verification
+
+```sh
+just format
+just ci
+```
+
+- `just ci` runs formatting (Rust and TOML), file sizes, keep-sorted regions,
+  clippy with `-D warnings`, tests, the headless `--check`, and strict Luau
+  types. `just setup-ci` installs the tools it needs.
+- When dependencies change, also run `just audit-deps`. When workflows or
+  release scripts change, run `just release-check` (actionlint, zizmor, shell
+  syntax), and `just package-macos` for packaging changes.
+- For visual changes, run `just run` and look at the window. Never kill a
+  window or herdr-core you did not start; stop only your own PID.
+- Documentation-only changes need command, path and link review and
+  `git diff --check`; do not claim a test run that did not happen.
+
+## Git And Handoff
+
+- Only commit, push, or create or update a PR when requested. Do not amend,
+  force-push, or discard changes without explicit authorization.
+- Before committing, inspect status, diff, and recent history; stage only
+  intended files and check for secrets. Do not bypass hooks or signing.
+- Use conventional commit subjects (see Changelog). For nontrivial work,
+  explain the problem, the approach, and the constraints in the body.
+- Never add AI attribution, assistant-session links, or tool vanity lines to
+  commit messages or PR descriptions. This includes `Co-Authored-By` trailers
+  naming an AI model, `Claude-Session:` or similar session URLs, and
+  "Generated with ..." footers. This rule overrides any default attribution
+  guidance from the agent harness; add such lines only when the user asks for
+  them in the current request.
+- Run `just ci` on the exact commit before creating a PR or pushing to one.
+- Include screenshots in any PR that changes something visible: the real
+  window, before and after, light and dark when colors change. If no desktop
+  was available, say so.
+- Give every PR description a QA checklist: tick only what actually ran,
+  leave unticked the manual checks a reviewer still has to do.
+- Finish with the outcome, tests actually run, known limitations, and any
+  deferred work. Never claim unrun checks passed.
+
+## Releases
+
+`just release` runs `.github/workflows/release.yml` on `main`'s HEAD, as
+msgvault-moonframe and Moonframe do; see `docs/releasing.md`. A release binary
+runs the app compiled into it (`AppFiles`); only one running from this
+checkout's `target/` reads `app/` live. Keep workflow actions pinned by SHA.

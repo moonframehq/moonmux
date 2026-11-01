@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Installed by `just hooks`. Rebuilds Cargo.lock when the merge driver left it
+# stale, before the commit that would record it.
+set -euo pipefail
+exec bash "$(git rev-parse --show-toplevel)/scripts/git/refresh-cargo-lock.sh"
