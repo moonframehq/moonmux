@@ -2,7 +2,8 @@
 -- elsewhere) on the left, the chosen space's tabs and split panes in a card
 -- on the right, the Files or Changes panel beside it when shown, a status
 -- line under all, and the peek sheet over them; over all of them Settings,
--- the command palette and the Welcome.
+-- the command palette and the Welcome; and the alerts, which draw nothing
+-- but need to know whether the window is active.
 -- The title bar is hidden: its traffic lights sit over the sidebar, or
 -- over the tab strip while the sidebar is folded.
 
@@ -117,7 +118,7 @@ return mod {
 		end
 	end,
 
-	view = function(state: State)
+	view = function(state: State, app)
 		local panel: string? = state.panel or state.last
 		local body = ui.hsplit {
 			id = "body",
@@ -146,6 +147,7 @@ return mod {
 			ui.mount "settings",
 			ui.mount "palette",
 			ui.mount "welcome",
+			ui.mount { "alerts", id = "main", props = { active = app.window.active } },
 		}
 	end,
 }
