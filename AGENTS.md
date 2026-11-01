@@ -45,6 +45,10 @@ window must leave herdr-core and its terminals running.
 - **The provider's contract:** what `Core::snapshot` publishes is `app.core`;
   what `Core::receive` takes is what mods send `provider:core`. Change both
   sides together, and the doc comment at the top of `core.rs`.
+- **Who may act on terminals:** `provider:core`'s actions reach any terminal
+  in herdr-core (a peek answers agents elsewhere), so only the mods in
+  `app/providers/core/provider.toml`'s `[settings] writers` may send them.
+  A new mod that acts goes in that list; never widen it to everyone.
 - Moonframe caps terminals at 8 per mod (one instance is one owner) and 32 per
   app run, closed ones included.
 - **File size limit: 1,000 lines.** No Rust, Python, shell, or Swift file may

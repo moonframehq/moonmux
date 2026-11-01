@@ -17,12 +17,16 @@
 //!   peek = { address, text } }
 //! ```
 //!
-//! What it takes, from any mod: `{ watch = "t7" }` (publish that
-//! terminal's screen as `peek` each tick; `""` stops), `{ send = "t7", text }`,
+//! What it takes: `{ watch = "t7" }` (publish that terminal's screen as
+//! `peek` each tick; `""` stops), `{ send = "t7", text }`,
 //! `{ keys = "t7", key = "enter" }`, `{ interrupt = "t7" }`,
-//! `{ kill = "t7" }`, `{ close_panes = "p1,p4" }` (end the shells of
-//! those panes of this app), `{ refresh = true }`. Actions are answered with
-//! `{ reply = <action>, address, ok, error }`.
+//! `{ close_panes = "p1,p4" }` (end the shells of those panes of this app).
+//! Actions are answered with `{ reply = <action>, address, ok, error }`.
+//!
+//! These reach any terminal in herdr-core, not only this app's: a peek
+//! answers agents running elsewhere. So only the mods named in
+//! provider.toml's `[settings] writers` may send them, as Moonframe's git
+//! provider does; a mod from a package the user installed is refused.
 
 use {
     moonframe::{Data, Handle, Native},
@@ -86,6 +90,8 @@ pub(crate) struct Core {
     ticks: u64,
     /// What was last published, so an unchanged tick redraws nothing.
     last: Value,
+    /// The mods that may watch and act (`[settings] writers`).
+    writers: Vec<String>,
 }
 
 impl Core {
@@ -97,6 +103,7 @@ impl Core {
             server: Value::Null,
             ticks: 0,
             last: Value::Null,
+            writers: Vec::new(),
         }
     }
 
@@ -221,10 +228,6 @@ impl Core {
             let result = self.hc(&["interrupt", &address]);
             return Some(("interrupt", address, result));
         }
-        if let Some(address) = field("kill") {
-            let result = self.hc(&["kill", &address]);
-            return Some(("kill", address, result));
-        }
         if let Some(panes) = field("close_panes") {
             let result = self.close_panes(&panes);
             return Some(("close_panes", panes, result));
@@ -269,6 +272,7 @@ impl Core {
 
 impl Native for Core {
     fn start(&mut self, host: &Handle) -> Result<(), String> {
+        self.writers = writers(host.settings());
         self.publish(host);
         Ok(())
     }
@@ -279,6 +283,25 @@ impl Native for Core {
     }
 
     fn receive(&mut self, host: &Handle, from: &str, message: Data) {
+        // Typing into, interrupting or reading another program's terminal
+        // is for this app's own mods, never one from elsewhere.
+        if !may_act(&self.writers, from) {
+            tracing::warn!(
+                "core: refused `{from}`: only the mods in providers/core's `writers` may act"
+            );
+            host.send(
+                from,
+                Data::map([
+                    ("reply", "refused".into()),
+                    ("ok", false.into()),
+                    (
+                        "error",
+                        format!("`{from}` may not act on terminals: only the mods in providers/core's `writers` may").into(),
+                    ),
+                ]),
+            );
+            return;
+        }
         if let Some(address) = message.get("watch").and_then(Data::as_str) {
             self.watching = address.to_owned();
         } else if let Some((action, address, result)) = self.act(&message) {
@@ -314,6 +337,22 @@ pub(crate) fn new_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
     #[cfg(not(windows))]
     let _ = &mut command;
     command
+}
+
+/// The mods `[settings] writers` names.
+fn writers(settings: &Data) -> Vec<String> {
+    match settings.get("writers") {
+        Some(Data::List(names)) => names
+            .iter()
+            .filter_map(Data::as_str)
+            .map(str::to_owned)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn may_act(writers: &[String], from: &str) -> bool {
+    writers.iter().any(|writer| writer == from)
 }
 
 /// A string field of `value`, or `""`.
@@ -500,6 +539,23 @@ mod tests {
         assert_eq!(counts["working"], 1);
         assert_eq!(counts["blocked"], 1);
         assert_eq!(counts["done"], 0);
+    }
+
+    #[test]
+    fn only_the_named_writers_may_act() {
+        let settings = Data::map([("writers", vec!["peek", "workspace"].into())]);
+        let writers = writers(&settings);
+        assert!(may_act(&writers, "peek"));
+        assert!(may_act(&writers, "workspace"));
+        assert!(!may_act(&writers, "sidebar"));
+        assert!(!may_act(&writers, "someones-package"));
+    }
+
+    #[test]
+    fn without_writers_no_mod_may_act() {
+        let none = writers(&Data::Nil);
+        assert!(none.is_empty());
+        assert!(!may_act(&none, "peek"));
     }
 
     #[test]

@@ -6,3 +6,10 @@ interval = 1.0
 kind     = "native"
 # The sidebar and status bar read it from the first frame.
 start = "always"
+
+[settings]
+# The mods that may act on terminals: type into one, press its keys,
+# interrupt it, read its screen (a peek), or end a closed pane's shell. These
+# reach any terminal in herdr-core, so a mod from a package the user
+# installed is refused unless its name is added here.
+writers = ["peek", "workspace"]
