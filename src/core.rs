@@ -11,32 +11,48 @@
 //! What it publishes:
 //!
 //! ```text
-//! { ok, error, core = { name, version },
-//!   terminals = { { address, name, agent, cwd, status, turn, ours, pane, is_agent } },
+//! { ok, error, now, core = { name, version },
+//!   terminals = { { address, name, agent, program, program_key, cwd, status,
+//!                   status_ms, turn, parent, ours, pane, is_agent } },
 //!   counts = { live, agents, working, blocked, done },
 //!   ended = { "p3", ... },   -- this app's panes whose shell exited
-//!   peek = { address, text } }
+//!   programs = { { key, name, installed } },   -- the agents "+" can start
+//!   peek = { address, text },
+//!   app_version,             -- this app's version
+//!   machines = { ok, error, list = { { name, target, state, version } } } }
 //! ```
+//!
+//! A terminal's `program` is what to call it (`Claude Code`, `zsh`), and
+//! `program_key` the key its icon is drawn by (`claude`, `shell`, or `""`
+//! for one the app does not know): see programs.rs. `status_ms` is when it
+//! entered its status (ms since the epoch; 0 without one), and `now` the
+//! time rounded down to the minute, for the views to count ages by: Luau
+//! has no clock. `parent` is the terminal that started it, if any.
 //!
 //! What it takes: `{ watch = "t7" }` (publish that terminal's screen as
 //! `peek` each tick; `""` stops), `{ send = "t7", text }`,
 //! `{ keys = "t7", key = "enter" }`, `{ interrupt = "t7" }`,
-//! `{ close_panes = "p1,p4" }` (end the shells of those panes of this app).
+//! `{ close_panes = "p1,p4" }` (end the shells of those panes of this app),
+//! `{ start = "p3", program = "claude" }` (type a startable agent's command
+//! into that pane's new shell, once: the terminal is labelled first, and a
+//! labelled one is never typed into again, across reloads and launches).
 //! Actions are answered with `{ reply = <action>, address, ok, error }`.
 //!
 //! These reach any terminal in herdr-core, not only this app's: a peek
 //! answers agents running elsewhere. So only the mods named in
 //! provider.toml's `[settings] writers` may send them, as Moonframe's git
 //! provider does; a mod from a package the user installed is refused.
+//!
+//! Any mod may send two requests that touch no terminal: `{ refresh =
+//! "machines" }` (read `hc machine ls` again at once, rather than at the
+//! next look at the server) and `{ open = "releases" }` (open this app's
+//! releases page in the browser: the only address it opens), answered as
+//! `{ reply = "open", address, ok, error }`. Each runs at most once a tick.
 
 use {
     moonframe::{Data, Handle, Native},
     serde_json::{Value, json},
-    std::{
-        collections::HashMap,
-        path::{Path, PathBuf},
-        process::Command,
-    },
+    std::{collections::HashMap, path::PathBuf, process::Command},
 };
 
 /// The label herdr-core keeps the owning app's name in.
@@ -49,6 +65,13 @@ const PANE_MOD: &str = "pane#";
 const SERVER_EVERY: u64 = 30;
 /// Lines of history above the screen a peek shows.
 const PEEK_LINES: &str = "60";
+/// Where this app's releases are, for Settings > Updates.
+const RELEASES: &str = "https://github.com/penso/herdr-moonframe/releases";
+/// The label marking a pane's terminal as given its agent: `start` types
+/// into a terminal only while it has none.
+const START_LABEL: &str = "herdr-moonframe-start";
+/// Ticks between looks for installed agents.
+const PROGRAMS_EVERY: u64 = 10;
 
 /// Programs herdr-core names that are coding agents, as it reports them.
 const AGENTS: &[&str] = &[
@@ -77,6 +100,18 @@ struct Labels {
     ours: bool,
     /// The pane instance it is drawn in, for one of ours.
     pane: String,
+    /// The agent `start` typed into it, for one of ours.
+    started: String,
+}
+
+/// When a terminal's status last changed, by herdr-core's clock (`status_ms`
+/// in `hc get`; `hc ls` leaves it out), and the status and turn it was read
+/// for: a new one is read only when they change.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct Stamp {
+    status: String,
+    turn: i64,
+    ms: i64,
 }
 
 pub(crate) struct Core {
@@ -84,10 +119,21 @@ pub(crate) struct Core {
     hc: Option<PathBuf>,
     /// Labels by address, for the terminals live at the last tick.
     labels: HashMap<String, Labels>,
+    /// Status times by address, for the terminals live at the last tick.
+    stamps: HashMap<String, Stamp>,
     /// The terminal shown in a peek, if any.
     watching: String,
     /// The server's name and version, looked at now and then.
     server: Value,
+    /// The machines herdr-core reaches over ssh, read as often as `server`.
+    machines: Value,
+    /// The tick of the last refresh and of the last page opened: any mod
+    /// may ask for either, so each runs at most once a tick.
+    refreshed: Option<u64>,
+    opened: Option<u64>,
+    /// The startable agents and whether each is installed, looked at now
+    /// and then.
+    programs: Value,
     ticks: u64,
     /// What was last published, so an unchanged tick redraws nothing.
     last: Value,
@@ -100,8 +146,13 @@ impl Core {
         Self {
             hc: find_hc(),
             labels: HashMap::new(),
+            stamps: HashMap::new(),
             watching: String::new(),
             server: Value::Null,
+            machines: Value::Null,
+            refreshed: None,
+            opened: None,
+            programs: Value::Null,
             ticks: 0,
             last: Value::Null,
             writers: Vec::new(),
@@ -147,6 +198,31 @@ impl Core {
         labels
     }
 
+    /// When `terminal` (from `hc ls`) entered its status, in ms since the
+    /// epoch: from the cache while its status and turn stay, else `hc get`.
+    /// 0 for a terminal reporting no status.
+    fn status_ms(&mut self, terminal: &Value) -> i64 {
+        let status = text(terminal, "status");
+        if status.is_empty() {
+            return 0;
+        }
+        let address = text(terminal, "address");
+        let turn = turn(terminal);
+        if let Some(stamp) = self.stamps.get(&address)
+            && stamp.status == status
+            && stamp.turn == turn
+        {
+            return stamp.ms;
+        }
+        // A failed read is not kept: the next tick tries again.
+        let Ok(got) = self.hc_json(&["get", &address, "--json"]) else {
+            return 0;
+        };
+        let ms = got.get("status_ms").and_then(Value::as_i64).unwrap_or(0);
+        self.stamps.insert(address, Stamp { status, turn, ms });
+        ms
+    }
+
     fn snapshot(&mut self) -> Value {
         if (self.ticks.is_multiple_of(SERVER_EVERY) || self.server.is_null())
             && let Ok(status) = self.hc_json(&["server", "status", "--json"])
@@ -156,11 +232,26 @@ impl Core {
                 "version": status.get("version").and_then(Value::as_str).unwrap_or(""),
             });
         }
+        if self.ticks.is_multiple_of(SERVER_EVERY) || self.machines.is_null() {
+            self.machines = machines(self.hc_json(&["machine", "ls", "--json"]));
+        }
+        if self.ticks.is_multiple_of(PROGRAMS_EVERY) || self.programs.is_null() {
+            self.programs = crate::programs::installed();
+        }
         // Finished terminals too: a pane whose shell exited says so.
         let listed = match self.hc_json(&["ls", "--all", "--json"]) {
             Ok(listed) => listed,
             Err(error) => {
-                return json!({ "ok": false, "error": error, "terminals": [], "counts": counts(&[]) });
+                // Settings still shows the app's version and why the
+                // machines could not be read.
+                return json!({
+                    "ok": false,
+                    "error": error,
+                    "terminals": [],
+                    "counts": counts(&[]),
+                    "app_version": env!("CARGO_PKG_VERSION"),
+                    "machines": self.machines,
+                });
             }
         };
         let home = std::env::var("HOME").unwrap_or_default();
@@ -177,13 +268,15 @@ impl Core {
             .map(str::to_owned)
             .collect();
         self.labels.retain(|address, _| live.contains(address));
+        self.stamps.retain(|address, _| live.contains(address));
         let mut terminals = Vec::new();
         let mut finished = Vec::new();
         for terminal in &raw {
             let address = text(terminal, "address");
             let labels = self.labels_of(&address);
             if text(terminal, "state") == "live" {
-                terminals.push(entry(terminal, &labels, &home));
+                let since = self.status_ms(terminal);
+                terminals.push(entry(terminal, &labels, since, &home));
             } else if labels.ours && !labels.pane.is_empty() {
                 finished.push(labels.pane);
             }
@@ -192,10 +285,14 @@ impl Core {
         let mut snapshot = json!({
             "ok": true,
             "error": "",
+            "now": to_minute(now_ms()),
             "core": self.server,
             "counts": counts(&terminals),
             "terminals": terminals,
             "ended": ended,
+            "app_version": env!("CARGO_PKG_VERSION"),
+            "machines": self.machines,
+            "programs": self.programs,
         });
         if !self.watching.is_empty() {
             let watching = self.watching.clone();
@@ -239,26 +336,65 @@ impl Core {
             let result = self.close_panes(&panes);
             return Some(("close_panes", panes, result));
         }
+        if let Some(pane) = field("start") {
+            let result = self.start(&pane, &field("program").unwrap_or_default());
+            return Some(("start", pane, result));
+        }
         None
     }
 
-    /// Ends the shells of this app's panes `panes` (`p1,p4`): closing a
-    /// pane ends what runs in it, as closing the window does not.
-    fn close_panes(&mut self, panes: &str) -> Result<String, String> {
-        let panes: Vec<&str> = panes.split(',').filter(|pane| !pane.is_empty()).collect();
+    /// The live terminals of this app (the label says so; `labels_of`
+    /// tells which pane each is).
+    fn our_terminals(&self) -> Result<Vec<String>, String> {
         let listed = self.hc_json(&[
             "ls",
             "--json",
             "--label",
             &format!("{APP_LABEL}={}", crate::NAME),
         ])?;
-        let addresses: Vec<String> = listed
+        Ok(listed
             .get("terminals")
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
             .map(|terminal| text(terminal, "address"))
-            .collect();
+            .collect())
+    }
+
+    /// Types the startable agent `key`'s command into the new shell of this
+    /// app's pane `pane`, once: the terminal is labelled before it is typed
+    /// into, and a labelled terminal is left alone, so neither a message
+    /// sent twice nor a reload starts a second agent.
+    fn start(&mut self, pane: &str, key: &str) -> Result<String, String> {
+        let program = crate::programs::startable(key)
+            .ok_or_else(|| format!("`{key}` is not an agent this app starts"))?;
+        let found = crate::programs::locate(program.run)
+            .ok_or_else(|| format!("{} is not installed", program.name))?;
+        let mut address = None;
+        for candidate in self.our_terminals()? {
+            if self.labels_of(&candidate).pane == pane {
+                address = Some(candidate);
+                break;
+            }
+        }
+        let address = address.ok_or_else(|| format!("pane {pane} has no live terminal"))?;
+        if !self.labels_of(&address).started.is_empty() {
+            return Ok("already started".to_owned());
+        }
+        self.hc(&["label", &address, &format!("{START_LABEL}={key}")])?;
+        if let Some(labels) = self.labels.get_mut(&address) {
+            labels.started = key.to_owned();
+        }
+        let path = std::env::var_os("PATH");
+        let command = crate::programs::command_line(program, &found, path.as_deref());
+        self.hc(&["send", &address, &command])
+    }
+
+    /// Ends the shells of this app's panes `panes` (`p1,p4`): closing a
+    /// pane ends what runs in it, as closing the window does not.
+    fn close_panes(&mut self, panes: &str) -> Result<String, String> {
+        let panes: Vec<&str> = panes.split(',').filter(|pane| !pane.is_empty()).collect();
+        let addresses = self.our_terminals()?;
         let mut problems = Vec::new();
         for address in addresses {
             let labels = self.labels_of(&address);
@@ -290,6 +426,26 @@ impl Native for Core {
     }
 
     fn receive(&mut self, host: &Handle, from: &str, message: Data) {
+        // What touches no terminal, any mod may ask.
+        if message.get("refresh").and_then(Data::as_str) == Some("machines") {
+            if once_a_tick(&mut self.refreshed, self.ticks) {
+                self.machines = Value::Null;
+                self.publish(host);
+            }
+            return;
+        }
+        if let Some(page) = message.get("open").and_then(Data::as_str) {
+            let result = if once_a_tick(&mut self.opened, self.ticks) {
+                open_page(page)
+            } else {
+                Err("a page was opened a moment ago".to_owned())
+            };
+            if let Err(error) = &result {
+                tracing::warn!("core: open {page}: {error}");
+            }
+            host.send(from, reply("open", page, result));
+            return;
+        }
         // Typing into, interrupting or reading another program's terminal
         // is for this app's own mods, never one from elsewhere.
         if !may_act(&self.writers, from) {
@@ -315,18 +471,93 @@ impl Native for Core {
             if let Err(error) = &result {
                 tracing::warn!("core: {action} {address}: {error}");
             }
-            host.send(
-                from,
-                Data::map([
-                    ("reply", action.into()),
-                    ("address", address.into()),
-                    ("ok", result.is_ok().into()),
-                    ("error", result.err().unwrap_or_default().into()),
-                ]),
-            );
+            host.send(from, reply(action, &address, result));
         }
         self.publish(host);
     }
+}
+
+/// Whether what was last done at tick `last` may run again at `now`, and
+/// if so, marks it done now.
+fn once_a_tick(last: &mut Option<u64>, now: u64) -> bool {
+    if *last == Some(now) {
+        return false;
+    }
+    *last = Some(now);
+    true
+}
+
+/// The answer to an action: `{ reply = <action>, address, ok, error }`.
+fn reply(action: &str, address: &str, result: Result<String, String>) -> Data {
+    Data::map([
+        ("reply", action.into()),
+        ("address", address.into()),
+        ("ok", result.is_ok().into()),
+        ("error", result.err().unwrap_or_default().into()),
+    ])
+}
+
+/// The address of a page `{ open = <page> }` may name.
+fn page_address(page: &str) -> Option<&'static str> {
+    match page {
+        "releases" => Some(RELEASES),
+        _ => None,
+    }
+}
+
+/// Opens `page` in the system's browser.
+fn open_page(page: &str) -> Result<String, String> {
+    let address = page_address(page).ok_or_else(|| format!("no page called {page:?}"))?;
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(windows) {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    let status = new_command(opener)
+        .arg(address)
+        .status()
+        .map_err(|error| format!("{opener}: {error}"))?;
+    opened(opener, status.success(), status.code())
+}
+
+/// Whether the opener's exit says the page opened. explorer exits with 1
+/// even when it opened the page, so on Windows only a start failure counts.
+fn opened(opener: &str, success: bool, code: Option<i32>) -> Result<String, String> {
+    if success || cfg!(windows) {
+        return Ok(String::new());
+    }
+    Err(match code {
+        Some(code) => format!("{opener} could not open the page (exit {code})"),
+        None => format!("{opener} could not open the page"),
+    })
+}
+
+/// What `hc machine ls --json` said, as the mods read it: the machines
+/// added for good (not ones a command reached once), or why it failed.
+fn machines(listed: Result<Value, String>) -> Value {
+    let listed = match listed {
+        Ok(listed) => listed,
+        Err(error) => return json!({ "ok": false, "error": error, "list": [] }),
+    };
+    let list: Vec<Value> = listed
+        .get("machines")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|machine| machine.get("temporary").and_then(Value::as_bool) != Some(true))
+        .map(|machine| {
+            json!({
+                "name": text(machine, "name"),
+                "target": text(machine, "target"),
+                "state": text(machine, "state"),
+                "version": text(machine, "version"),
+            })
+        })
+        .filter(|machine| machine["name"] != "")
+        .collect();
+    json!({ "ok": true, "error": "", "list": list })
 }
 
 /// A child process that opens no console window on Windows, where a
@@ -381,13 +612,13 @@ fn labels_from(terminal: &Value) -> Labels {
             .unwrap_or("")
     };
     let ours = label(APP_LABEL) == crate::NAME;
+    if !ours {
+        return Labels::default();
+    }
     Labels {
         ours,
-        pane: if ours {
-            pane_of(label(KEY_LABEL))
-        } else {
-            String::new()
-        },
+        pane: pane_of(label(KEY_LABEL)),
+        started: label(START_LABEL).to_owned(),
     }
 }
 
@@ -416,18 +647,43 @@ fn is_agent(agent: &str, status: &str) -> bool {
     !status.is_empty() || AGENTS.contains(&agent)
 }
 
-/// One terminal as the mods read it.
-fn entry(terminal: &Value, labels: &Labels, home: &str) -> Value {
+fn turn(terminal: &Value) -> i64 {
+    terminal.get("turn").and_then(Value::as_i64).unwrap_or(0)
+}
+
+/// Now, in ms since the epoch, as herdr-core counts `status_ms`.
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| {
+            i64::try_from(since.as_millis()).unwrap_or(i64::MAX)
+        })
+}
+
+/// `ms` rounded down to the minute: the clock the views count ages by
+/// ("4m"), which changes what is published once a minute, not each tick.
+fn to_minute(ms: i64) -> i64 {
+    ms - ms.rem_euclid(60_000)
+}
+
+/// One terminal as the mods read it; `status_ms` is when it entered its
+/// status.
+fn entry(terminal: &Value, labels: &Labels, status_ms: i64, home: &str) -> Value {
     let agent = text(terminal, "agent");
     let status = text(terminal, "status");
+    let (key, program) = crate::programs::program_of(&agent);
     json!({
         "address": text(terminal, "address"),
         "name": text(terminal, "name"),
         "cwd": tilde(&text(terminal, "cwd"), home),
+        "program": program,
+        "program_key": key,
         "agent": agent,
         "is_agent": is_agent(&agent, &status),
         "status": status,
-        "turn": terminal.get("turn").and_then(Value::as_i64).unwrap_or(0),
+        "status_ms": status_ms,
+        "parent": text(terminal, "parent"),
+        "turn": turn(terminal),
         "ours": labels.ours,
         "pane": labels.pane,
     })
@@ -474,19 +730,7 @@ fn find_hc() -> Option<PathBuf> {
     {
         return Some(bin);
     }
-    let on_path = std::env::var_os("PATH")
-        .into_iter()
-        .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
-        .map(|dir| dir.join("hc"))
-        .find(|candidate| candidate.is_file());
-    on_path.or_else(|| {
-        let home = std::env::var_os("HOME").map(PathBuf::from)?;
-        [".local/bin/hc", ".cargo/bin/hc"]
-            .iter()
-            .map(|relative| home.join(relative))
-            .chain([Path::new("/opt/homebrew/bin/hc").to_owned()])
-            .find(|candidate| candidate.is_file())
-    })
+    crate::programs::locate("hc")
 }
 
 #[cfg(test)]
@@ -509,9 +753,19 @@ mod tests {
             labels_from(&ours),
             Labels {
                 ours: true,
-                pane: "p3".into()
+                pane: "p3".into(),
+                started: String::new(),
             }
         );
+        let started = json!({ "labels": {
+            "moonframe-app": "herdr-moonframe",
+            "moonframe": "pane#p4/term",
+            "herdr-moonframe-start": "claude",
+        } });
+        assert_eq!(labels_from(&started).started, "claude");
+        // Another app's label never counts as started here.
+        let theirs_started = json!({ "labels": { "herdr-moonframe-start": "claude" } });
+        assert_eq!(labels_from(&theirs_started), Labels::default());
         let theirs = json!({ "labels": { "moonframe-app": "moonframe-sessions", "moonframe": "pane#p3/term" } });
         assert_eq!(labels_from(&theirs), Labels::default());
         assert_eq!(labels_from(&json!({})), Labels::default());
@@ -543,13 +797,18 @@ mod tests {
         let ours = Labels {
             ours: true,
             pane: "p1".into(),
+            started: String::new(),
         };
         let entries: Vec<Value> = listed
             .iter()
-            .map(|terminal| entry(terminal, &ours, "/home/u"))
+            .map(|terminal| entry(terminal, &ours, 0, "/home/u"))
             .collect();
         assert_eq!(entries[0]["cwd"], "~/x");
         assert_eq!(entries[0]["is_agent"], false);
+        assert_eq!(entries[0]["program_key"], "shell");
+        assert_eq!(entries[0]["program"], "zsh");
+        assert_eq!(entries[1]["program_key"], "claude");
+        assert_eq!(entries[1]["program"], "Claude Code");
         assert_eq!(entries[1]["status"], "working");
         assert_eq!(entries[1]["pane"], "p1");
         assert_eq!(entries[2]["cwd"], "/srv");
@@ -559,6 +818,56 @@ mod tests {
         assert_eq!(counts["working"], 1);
         assert_eq!(counts["blocked"], 1);
         assert_eq!(counts["done"], 0);
+    }
+
+    #[test]
+    fn entries_say_the_program_its_parent_and_since_when() {
+        let helper = json!({ "address": "t4", "agent": "claude", "status": "working", "parent": "t2", "turn": 1 });
+        let entry = entry(&helper, &Labels::default(), 1_793_567_863_379, "/home/u");
+        assert_eq!(entry["program"], "Claude Code");
+        assert_eq!(entry["parent"], "t2");
+        assert_eq!(entry["status_ms"], 1_793_567_863_379_i64);
+        let alone = json!({ "address": "t5", "agent": "my-bot" });
+        let alone = super::entry(&alone, &Labels::default(), 0, "/home/u");
+        assert_eq!(alone["program"], "my-bot");
+        assert_eq!(alone["parent"], "");
+    }
+
+    #[test]
+    fn the_clock_is_published_by_the_minute() {
+        assert_eq!(to_minute(1_793_567_863_379), 1_793_567_820_000);
+        assert_eq!(to_minute(1_793_567_820_000), 1_793_567_820_000);
+        assert_eq!(to_minute(59_999), 0);
+        assert!(now_ms() > 1_700_000_000_000);
+    }
+
+    #[test]
+    fn status_times_are_read_again_only_when_the_status_changes() {
+        let mut core = Core {
+            hc: None,
+            ..Core::new()
+        };
+        // No status: nothing to read.
+        assert_eq!(
+            core.status_ms(&json!({ "address": "t1", "agent": "zsh" })),
+            0
+        );
+        assert!(core.stamps.is_empty());
+        let working = json!({ "address": "t2", "status": "working", "turn": 3 });
+        core.stamps.insert(
+            "t2".into(),
+            Stamp {
+                status: "working".into(),
+                turn: 3,
+                ms: 42,
+            },
+        );
+        assert_eq!(core.status_ms(&working), 42);
+        // A new status is looked up. Here `hc` is missing, so the read
+        // fails: it says 0 and keeps the old stamp, to try again next tick.
+        let done = json!({ "address": "t2", "status": "done", "turn": 3 });
+        assert_eq!(core.status_ms(&done), 0);
+        assert_eq!(core.stamps["t2"].status, "working");
     }
 
     #[test]
@@ -583,6 +892,85 @@ mod tests {
         let live = [json!({ "pane": "p2" })];
         let finished = vec!["p3".to_owned(), "p2".to_owned(), "p3".to_owned()];
         assert_eq!(ended_panes(finished, &live), vec!["p3".to_owned()]);
+    }
+
+    #[test]
+    fn machines_are_listed_without_temporary_ones() {
+        let listed = json!({ "machines": [
+            { "name": "vps", "target": "me@vps", "state": "connected", "version": "0.4.1" },
+            { "name": "once", "target": "once", "state": "connected", "temporary": true },
+            { "name": "mini", "target": "mini.local", "state": "offline" },
+            { "target": "nameless" },
+        ] });
+        let machines = machines(Ok(listed));
+        assert_eq!(machines["ok"], true);
+        let names: Vec<&str> = machines["list"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|machine| machine["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, ["vps", "mini"]);
+        assert_eq!(machines["list"][0]["target"], "me@vps");
+        assert_eq!(machines["list"][0]["version"], "0.4.1");
+        assert_eq!(machines["list"][1]["version"], "");
+    }
+
+    #[test]
+    fn machines_that_cannot_be_read_say_why() {
+        let machines = machines(Err("hc machine: refused".to_owned()));
+        assert_eq!(machines["ok"], false);
+        assert_eq!(machines["error"], "hc machine: refused");
+        assert_eq!(machines["list"], json!([]));
+        assert_eq!(super::machines(Ok(json!({})))["list"], json!([]));
+    }
+
+    #[test]
+    fn only_the_releases_page_opens() {
+        assert_eq!(page_address("releases"), Some(RELEASES));
+        assert_eq!(page_address("https://example.com"), None);
+        assert!(open_page("file:///etc/passwd").is_err());
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn a_failed_opener_is_reported() {
+        assert!(opened("open", true, Some(0)).is_ok());
+        let error = opened("xdg-open", false, Some(3)).unwrap_err();
+        assert!(error.contains("exit 3"), "{error}");
+        assert!(opened("open", false, None).is_err());
+    }
+
+    #[test]
+    fn requests_any_mod_may_send_run_once_a_tick() {
+        let mut last = None;
+        assert!(once_a_tick(&mut last, 4));
+        assert!(!once_a_tick(&mut last, 4));
+        assert!(once_a_tick(&mut last, 5));
+    }
+
+    #[test]
+    fn replies_carry_the_action_and_its_outcome() {
+        let ok = reply("open", "releases", Ok(String::new()));
+        assert_eq!(ok.get("reply").and_then(Data::as_str), Some("open"));
+        assert_eq!(ok.get("ok"), Some(&Data::Bool(true)));
+        let failed = reply("send", "t1", Err("gone".to_owned()));
+        assert_eq!(failed.get("ok"), Some(&Data::Bool(false)));
+        assert_eq!(failed.get("error").and_then(Data::as_str), Some("gone"));
+    }
+
+    #[test]
+    fn start_refuses_what_is_not_a_startable_agent() {
+        let mut core = Core {
+            hc: None,
+            ..Core::new()
+        };
+        let error = core.start("p1", "rm -rf ~").unwrap_err();
+        assert!(error.contains("not an agent"), "{error}");
+        let message = Data::map([("start", "p1".into()), ("program", "amp".into())]);
+        let (action, pane, result) = core.act(&message).unwrap();
+        assert_eq!((action, pane.as_str()), ("start", "p1"));
+        assert!(result.is_err());
     }
 
     #[test]

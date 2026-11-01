@@ -11,6 +11,7 @@ mod changes;
 mod core;
 mod folder;
 mod git;
+mod programs;
 
 use {
     moonframe::Moonframe,

@@ -1,7 +1,8 @@
 -- Herdr's shell: the sidebar (spaces, then the agents in them and
 -- elsewhere) on the left, the chosen space's tabs and split panes in a card
 -- on the right, the Files or Changes panel beside it when shown, a status
--- line under all, and the peek sheet over them.
+-- line under all, and the peek sheet over them; over all of them Settings,
+-- the command palette and the Welcome.
 -- The title bar is hidden: its traffic lights sit over the sidebar, or
 -- over the tab strip while the sidebar is folded.
 
@@ -17,8 +18,12 @@ local MENUS: { { title: string, items: { any } } } = {
 		"-",
 		{ label = "Close Pane", msg = "close-pane", to = "workspace", shortcut = "secondary-w" },
 		{ label = "Close Tab", msg = "close-tab", to = "workspace", shortcut = "secondary-shift-w" },
+		"-",
+		{ label = "Settings…", msg = "open", to = "settings", shortcut = "secondary-," },
 	} },
 	{ title = "View", items = {
+		{ label = "Command Palette…", msg = "open", to = "palette", shortcut = "secondary-shift-p" },
+		"-",
 		{ label = "Show or Hide Sidebar", msg = "toggle-left", shortcut = "secondary-b" },
 		{ label = "Show or Hide Files", msg = { panel = "files" } },
 		{ label = "Show or Hide Changes", msg = { panel = "changes" } },
@@ -46,6 +51,9 @@ local MENUS: { { title: string, items: { any } } } = {
 	{ title = "Window", items = {
 		{ label = "Minimize", command = "minimize", shortcut = "secondary-m" },
 		{ label = "Zoom", command = "maximize" },
+	} },
+	{ title = "Help", items = {
+		{ label = "Welcome to Herdr", msg = "open", to = "welcome" },
 	} },
 }
 
@@ -85,6 +93,8 @@ return mod {
 		return state, {
 			{ to = "workspace", msg = { sidebar = state.left } },
 			{ to = "workspace", msg = { panel = state.panel or false } },
+			-- The palette lists what the menus offer.
+			{ to = "palette", msg = { menus = MENUS } },
 		}
 	end,
 
@@ -133,6 +143,9 @@ return mod {
 			body,
 			state.status and ui.mount "statusbar",
 			ui.mount "peek",
+			ui.mount "settings",
+			ui.mount "palette",
+			ui.mount "welcome",
 		}
 	end,
 }
