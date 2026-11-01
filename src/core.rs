@@ -176,7 +176,16 @@ impl Core {
         let listed = match self.hc_json(&["ls", "--all", "--json"]) {
             Ok(listed) => listed,
             Err(error) => {
-                return json!({ "ok": false, "error": error, "terminals": [], "counts": counts(&[]) });
+                // Settings still shows the app's version and why the
+                // machines could not be read.
+                return json!({
+                    "ok": false,
+                    "error": error,
+                    "terminals": [],
+                    "counts": counts(&[]),
+                    "app_version": env!("CARGO_PKG_VERSION"),
+                    "machines": self.machines,
+                });
             }
         };
         let home = std::env::var("HOME").unwrap_or_default();
@@ -381,12 +390,23 @@ fn open_page(page: &str) -> Result<String, String> {
     } else {
         "xdg-open"
     };
-    // explorer exits with 1 even when it opened the page.
-    new_command(opener)
+    let status = new_command(opener)
         .arg(address)
         .status()
-        .map(|_| String::new())
-        .map_err(|error| format!("{opener}: {error}"))
+        .map_err(|error| format!("{opener}: {error}"))?;
+    opened(opener, status.success(), status.code())
+}
+
+/// Whether the opener's exit says the page opened. explorer exits with 1
+/// even when it opened the page, so on Windows only a start failure counts.
+fn opened(opener: &str, success: bool, code: Option<i32>) -> Result<String, String> {
+    if success || cfg!(windows) {
+        return Ok(String::new());
+    }
+    Err(match code {
+        Some(code) => format!("{opener} could not open the page (exit {code})"),
+        None => format!("{opener} could not open the page"),
+    })
 }
 
 /// What `hc machine ls --json` said, as the mods read it: the machines
@@ -707,6 +727,15 @@ mod tests {
         assert_eq!(page_address("releases"), Some(RELEASES));
         assert_eq!(page_address("https://example.com"), None);
         assert!(open_page("file:///etc/passwd").is_err());
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn a_failed_opener_is_reported() {
+        assert!(opened("open", true, Some(0)).is_ok());
+        let error = opened("xdg-open", false, Some(3)).unwrap_err();
+        assert!(error.contains("exit 3"), "{error}");
+        assert!(opened("open", false, None).is_err());
     }
 
     #[test]

@@ -24,6 +24,8 @@ type State = {
 	alerts: boolean,
 	layout: Layout,
 	copied: boolean,
+	-- Why the releases page did not open, from the core provider's reply.
+	error: string?,
 }
 
 local DEFAULTS: Layout = { tabs = "pills", headers = "split", status = "shown" }
@@ -47,6 +49,7 @@ local function show(state: State, page: string)
 	state.open = true
 	state.page = if TITLES[page] then page else "look"
 	state.copied = false
+	state.error = nil
 	if state.page == "machines" then
 		return state, { { to = "provider:core", msg = { refresh = "machines" } } }
 	end
@@ -75,6 +78,7 @@ return mod {
 			alerts = if previous then previous.alerts ~= false else true,
 			layout = { tabs = layout.tabs or DEFAULTS.tabs, headers = layout.headers or DEFAULTS.headers, status = layout.status or DEFAULTS.status },
 			copied = false,
+			error = nil,
 		}
 	end,
 
@@ -95,6 +99,7 @@ return mod {
 			state.open = false
 			return state, { { to = "feedback", msg = "open" } }
 		elseif msg == "releases" then
+			state.error = nil
 			return state, { { to = "provider:core", msg = { open = "releases" } } }
 		elseif msg == "reset-layout" then
 			state.layout = { tabs = DEFAULTS.tabs, headers = DEFAULTS.headers, status = DEFAULTS.status }
@@ -108,6 +113,9 @@ return mod {
 			-- it moved here) is the choice.
 			local value = msg.value or {}
 			state.layout = { tabs = value.tabs or DEFAULTS.tabs, headers = value.headers or DEFAULTS.headers, status = value.status or DEFAULTS.status }
+			return state
+		elseif msg.reply == "open" then
+			state.error = if msg.ok then nil else msg.error
 			return state
 		elseif msg.open then
 			return show(state, msg.open)
@@ -255,6 +263,7 @@ return mod {
 							control = ui.button { "Releases", icon = "external-link", small = true, variant = "outline", msg = "releases" },
 						},
 					},
+					content = if state.error then { ui.text { state.error, class = "st-error", wrap = true } } else nil,
 				},
 				{
 					title = "herdr-core",
