@@ -47,10 +47,17 @@ pub(crate) struct Output {
 /// anywhere included, so its own config must not run programs: the filter
 /// drivers it names (`filter.<x>.clean`, `smudge`, `process`, which `git
 /// status` runs on changed files) are emptied, which git takes as none.
-/// When they cannot all be found, nothing runs.
+/// When they cannot all be found, nothing runs. `status` and `diff` never
+/// go into submodules, whose own config would name filters of its own:
+/// `--ignore-submodules=all` on the command line wins over any
+/// `submodule.<x>.ignore` the repository sets.
 pub(crate) fn read(root: &Path, args: &[&str], limit: usize) -> Result<Output, String> {
     let keys = filter_keys(root)?;
-    let (output, success) = run(root, &keys, args, limit)?;
+    let mut args = args.to_vec();
+    if matches!(args.first(), Some(&("status" | "diff"))) {
+        args.insert(1, "--ignore-submodules=all");
+    }
+    let (output, success) = run(root, &keys, &args, limit)?;
     if !output.truncated && !success {
         let name = args.first().copied().unwrap_or("git");
         return Err(format!("git {name} failed"));
@@ -506,6 +513,86 @@ pub(crate) mod tests {
         std::fs::remove_file(&marker).unwrap();
         read(&dir, &["status", "--porcelain=v1", "-z"], 1 << 20).unwrap();
         assert!(!marker.exists(), "a repository's own filter ran");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_submodules_own_filters_never_run() {
+        let dir = tempdir();
+        let marker = dir.join("ran");
+        let at = |path: &Path, args: &[&str]| {
+            let output = new_command("git")
+                .arg("-C")
+                .arg(path)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "git {args:?}: {output:?}");
+        };
+        let inner = dir.join("inner");
+        let outer = dir.join("outer");
+        std::fs::create_dir_all(&inner).unwrap();
+        std::fs::create_dir_all(&outer).unwrap();
+        for repo in [&inner, &outer] {
+            at(repo, &["init", "-q"]);
+            at(repo, &["config", "user.name", "Test"]);
+            at(repo, &["config", "user.email", "test@example.com"]);
+            at(repo, &["config", "commit.gpgsign", "false"]);
+        }
+        std::fs::write(inner.join("a.txt"), "one\n").unwrap();
+        std::fs::write(inner.join(".gitattributes"), "*.txt filter=sub\n").unwrap();
+        at(&inner, &["add", "-A"]);
+        at(&inner, &["commit", "-q", "-m", "inner"]);
+        let source = inner.to_string_lossy().into_owned();
+        at(
+            &outer,
+            &[
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "add",
+                "-q",
+                &source,
+                "sub",
+            ],
+        );
+        at(&outer, &["commit", "-q", "-m", "outer"]);
+        let sub = outer.join("sub");
+        // The filter lives in the submodule's own config only.
+        at(
+            &sub,
+            &[
+                "config",
+                "filter.sub.clean",
+                &format!("touch '{}'; cat", marker.display()),
+            ],
+        );
+        std::fs::write(sub.join("a.txt"), "two\n").unwrap();
+        let _ = std::fs::remove_file(&marker);
+        // The filter is live: plain git, from the outer repository, runs it.
+        at(&outer, &["status", "--porcelain"]);
+        assert!(marker.exists(), "the test's filter never runs");
+        std::fs::remove_file(&marker).unwrap();
+        read(
+            &outer,
+            &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+            1 << 20,
+        )
+        .unwrap();
+        read(
+            &outer,
+            &[
+                "diff",
+                "HEAD",
+                "--numstat",
+                "-z",
+                "--no-ext-diff",
+                "--no-textconv",
+            ],
+            1 << 20,
+        )
+        .unwrap();
+        assert!(!marker.exists(), "a submodule's own filter ran");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
