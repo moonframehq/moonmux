@@ -120,6 +120,17 @@ pub(crate) fn program_of(agent: &str) -> (&'static str, String) {
     ("", agent.to_owned())
 }
 
+/// `name` as one of the names a coding agent runs under (`claude`,
+/// `cursor-agent`): how the tmux backend finds agents among processes.
+#[cfg(feature = "tmux")]
+pub(crate) fn agent_named(name: &str) -> Option<&'static str> {
+    STARTABLE
+        .iter()
+        .chain(KNOWN)
+        .flat_map(|program| program.matches.iter().copied())
+        .find(|known| *known == name)
+}
+
 /// Where `name` is: on `path` (a `PATH` value), else in the usual folders
 /// under `home`, else in the package managers' folders. On Windows only on
 /// `path`: an app there gets the user's whole `PATH`, and the shell finds

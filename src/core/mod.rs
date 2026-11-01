@@ -62,11 +62,13 @@
 //! releases page in the browser: the only address it opens), answered as
 //! `{ reply = "open", address, ok, error }`. Each runs at most once a tick.
 
-#[cfg(not(feature = "herdr-core"))]
-compile_error!("enable a terminal backend: the `herdr-core` feature");
+#[cfg(not(any(feature = "herdr-core", feature = "tmux")))]
+compile_error!("enable at least one terminal backend: the `herdr-core` or `tmux` feature");
 
 #[cfg(feature = "herdr-core")]
 mod herdr;
+#[cfg(feature = "tmux")]
+mod tmux;
 
 use {
     moonframe::{Data, Handle, Native},
@@ -130,6 +132,8 @@ fn backends() -> Vec<Box<dyn Backend>> {
     vec![
         #[cfg(feature = "herdr-core")]
         Box::new(herdr::HerdrCore::new()),
+        #[cfg(feature = "tmux")]
+        Box::new(tmux::Tmux::new()),
     ]
 }
 

@@ -27,9 +27,12 @@ serde_json = "1"
 tracing    = "0.1"
 
 [features]
-default = ["herdr-core"]
+default = ["herdr-core", "tmux"]
 # Terminals kept by herdr-core (`hc`), and its machines.
 herdr-core = ["moonframe/herdr-core"]
+# Terminals kept by tmux, on the app's own server, and the agents in the
+# user's other tmux servers. Moonframe's tmux backend needs no feature.
+tmux = []
 
 [profile.dev.package."*"]
 # GPUI and Luau are unusably slow unoptimised; keep our own crate
