@@ -64,6 +64,8 @@ struct File {
     added: u64,
     deleted: u64,
     binary: bool,
+    /// An untracked file longer than what is read: its count is a floor.
+    partial: bool,
 }
 
 #[derive(Default)]
@@ -108,6 +110,11 @@ impl Changes {
         if self.asked.is_empty() {
             return Some(json!({ "available": false, "reason": "No folder" }));
         }
+        // Looked for again until found: `git init` in the folder makes it
+        // one.
+        if self.root.is_none() {
+            self.root = git::folder(&self.asked).and_then(|folder| git::toplevel(&folder));
+        }
         let Some(root) = self.root.clone() else {
             return Some(json!({ "available": true, "folder": self.asked, "repository": false }));
         };
@@ -141,11 +148,14 @@ impl Changes {
         look.push(0xff);
         look.extend_from_slice(&numstat);
         look.extend_from_slice(self.diff_path.as_deref().unwrap_or("").as_bytes());
+        // An edit can leave both the same (an untracked file's lines, a
+        // tracked one's totals): each changed file's size and time tell.
+        let (changes, more) = git::status(&status.bytes, MAX_FILES);
+        look.extend_from_slice(&stamps(&root, &changes));
         if !force && look == self.last_look {
             return None;
         }
         self.last_look = look;
-        let (changes, more) = git::status(&status.bytes, MAX_FILES);
         let files = files(&root, changes, &numstat);
         let branch = git::read(&root, &["rev-parse", "--abbrev-ref", "HEAD"], 4096)
             .map(|output| String::from_utf8_lossy(&output.bytes).trim().to_owned())
@@ -174,6 +184,8 @@ impl Changes {
             "changed": files.len(),
             "added": added,
             "deleted": deleted,
+            // Some count is a floor: a new file longer than what is read.
+            "partial": files.iter().any(|file| file.partial),
             "truncated": more || status.truncated,
             "diff": diff,
         }))
@@ -293,19 +305,22 @@ fn files(root: &Path, changes: Vec<git::Change>, numstat: &[u8]) -> Vec<File> {
     changes
         .into_iter()
         .map(|change| {
-            let (added, deleted, binary) = if change.untracked {
+            let (added, deleted, binary, partial) = if change.untracked {
                 match untracked(root, &change.path) {
-                    Some(text) => (lines(&text) as u64, 0, false),
-                    None => (0, 0, true),
+                    Some((text, cut)) => (lines(&text) as u64, 0, false, cut),
+                    None => (0, 0, true, false),
                 }
             } else {
-                counts.get(&change.path).copied().unwrap_or((0, 0, false))
+                let (added, deleted, binary) =
+                    counts.get(&change.path).copied().unwrap_or((0, 0, false));
+                (added, deleted, binary, false)
             };
             File {
                 change,
                 added,
                 deleted,
                 binary,
+                partial,
             }
         })
         .collect()
@@ -335,20 +350,42 @@ fn counts(numstat: &[u8]) -> HashMap<String, (u64, u64, bool)> {
     counts
 }
 
-/// The text of an untracked file, bounded; nothing for a binary or
-/// unreadable one.
-fn untracked(root: &Path, path: &str) -> Option<String> {
+/// The text of an untracked file, bounded, and whether it was cut there;
+/// nothing for a binary or unreadable one.
+fn untracked(root: &Path, path: &str) -> Option<(String, bool)> {
     let full = git::inside(&root.canonicalize().ok()?, path)?;
     let mut bytes = Vec::new();
     fs::File::open(full)
         .ok()?
-        .take(UNTRACKED_BYTES as u64)
+        .take(UNTRACKED_BYTES as u64 + 1)
         .read_to_end(&mut bytes)
         .ok()?;
+    let cut = bytes.len() > UNTRACKED_BYTES;
+    bytes.truncate(UNTRACKED_BYTES);
     if bytes.contains(&0) {
         return None;
     }
-    Some(String::from_utf8_lossy(&bytes).into_owned())
+    Some((String::from_utf8_lossy(&bytes).into_owned(), cut))
+}
+
+/// Each changed file's size and modification time, for telling an edit
+/// that leaves git's output the same.
+fn stamps(root: &Path, changes: &[git::Change]) -> Vec<u8> {
+    let mut stamps = Vec::new();
+    for change in changes {
+        let Ok(meta) = fs::symlink_metadata(root.join(&change.path)) else {
+            stamps.push(0);
+            continue;
+        };
+        let time = meta
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(0, |since| since.as_nanos());
+        stamps.extend_from_slice(&meta.len().to_le_bytes());
+        stamps.extend_from_slice(&time.to_le_bytes());
+    }
+    stamps
 }
 
 fn lines(text: &str) -> usize {
@@ -359,7 +396,7 @@ fn lines(text: &str) -> usize {
 fn diff(root: &Path, base: &str, file: &File) -> Value {
     let path = &file.change.path;
     if file.change.untracked {
-        let Some(text) = untracked(root, path) else {
+        let Some((text, cut_bytes)) = untracked(root, path) else {
             return json!({ "path": path, "binary": true, "truncated": false, "hunks": [] });
         };
         let all: Vec<&str> = text.lines().collect();
@@ -373,7 +410,7 @@ fn diff(root: &Path, base: &str, file: &File) -> Value {
         return json!({
             "path": path,
             "binary": false,
-            "truncated": all.len() > DIFF_LINES,
+            "truncated": cut_bytes || all.len() > DIFF_LINES,
             "hunks": [{ "header": header, "lines": shown }],
         });
     }

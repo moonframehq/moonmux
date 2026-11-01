@@ -21,6 +21,9 @@ use {
 /// Options for reads that leave the repository as it was.
 const READ: &[&str] = &[
     "--no-optional-locks",
+    // A path is the file of that name, never a pattern: `a*b.txt` is one
+    // file.
+    "--literal-pathspecs",
     "-c",
     "core.fsmonitor=false",
     "-c",

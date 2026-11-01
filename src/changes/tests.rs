@@ -182,3 +182,110 @@ fn before_a_first_commit_the_base_is_the_empty_tree() {
     assert_eq!(base(&dir), EMPTY_TREE);
     fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A `changes` provider following `dir`, for the mod `changes`.
+fn following(dir: &Path) -> (Changes, Handle) {
+    let host = Handle::new("changes", dir, writers(), Arc::new(|_| {}));
+    let mut changes = Changes::new();
+    changes.start(&host).unwrap();
+    let asked = dir.to_string_lossy().into_owned();
+    changes.receive(
+        &host,
+        "changes",
+        Data::map([("root", Data::from(asked.as_str()))]),
+    );
+    (changes, host)
+}
+
+/// Sets `path`'s modification time `seconds` from now, so a test's two
+/// writes never share one.
+fn touch(path: &Path, seconds: u64) {
+    let file = fs::File::options().write(true).open(path).unwrap();
+    let time = std::time::SystemTime::now() + std::time::Duration::from_secs(seconds);
+    file.set_modified(time).unwrap();
+}
+
+#[test]
+fn edits_that_leave_gits_output_the_same_still_show() {
+    let dir = repository();
+    fs::write(dir.join("new.txt"), "a\n").unwrap();
+    fs::write(dir.join("a.txt"), "one\n2\n").unwrap();
+    let (mut changes, host) = following(&dir);
+    changes.receive(&host, "changes", Data::map([("diff", "a.txt".into())]));
+    changes.snapshot(true).unwrap();
+
+    // An untracked file grows: git's status and numstat say the same.
+    fs::write(dir.join("new.txt"), "a\nb\nc\n").unwrap();
+    touch(&dir.join("new.txt"), 10);
+    let snapshot = changes.snapshot(false).expect("the edit is seen");
+    let files = snapshot["files"].as_array().unwrap();
+    assert!(files.contains(&json!({ "path": "new.txt", "status": "A", "added": 3, "deleted": 0 })));
+
+    // A tracked file changes text but not its totals.
+    fs::write(dir.join("a.txt"), "one\n3\n").unwrap();
+    touch(&dir.join("a.txt"), 20);
+    let snapshot = changes.snapshot(false).expect("the edit is seen");
+    let lines = &snapshot["diff"]["hunks"][0]["lines"];
+    assert!(
+        lines
+            .as_array()
+            .unwrap()
+            .contains(&json!({ "kind": "add", "new": 2, "text": "3" }))
+    );
+    assert!(changes.snapshot(false).is_none());
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_path_is_one_file_never_a_pattern() {
+    let dir = repository();
+    fs::write(dir.join("a*b.txt"), "star\n").unwrap();
+    fs::write(dir.join("axb.txt"), "x\n").unwrap();
+    git(&dir, &["add", "-A"]);
+    git(&dir, &["commit", "-q", "-m", "two"]);
+    fs::write(dir.join("a*b.txt"), "star\nmore\n").unwrap();
+    fs::write(dir.join("axb.txt"), "x\nother\n").unwrap();
+    let (mut changes, host) = following(&dir);
+    changes.receive(&host, "changes", Data::map([("diff", "a*b.txt".into())]));
+    let snapshot = changes.snapshot(true).unwrap();
+    let hunks = snapshot["diff"]["hunks"].as_array().unwrap();
+    assert_eq!(hunks.len(), 1, "{snapshot}");
+    let texts: Vec<&str> = hunks[0]["lines"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|line| line["text"].as_str().unwrap())
+        .collect();
+    assert_eq!(texts, ["star", "more"]);
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_folder_made_a_repository_later_is_found() {
+    let dir = tempdir();
+    let (mut changes, _host) = following(&dir);
+    assert_eq!(changes.snapshot(true).unwrap()["repository"], false);
+    git(&dir, &["init", "-q"]);
+    assert_eq!(changes.snapshot(false).unwrap()["repository"], true);
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_new_file_longer_than_what_is_read_says_so() {
+    let dir = repository();
+    // Few lines, many bytes: the line cap alone would not see the cut.
+    let line = "x".repeat(1000);
+    let text = format!("{line}\n").repeat(UNTRACKED_BYTES / 1000 + 10);
+    fs::write(dir.join("big.txt"), text).unwrap();
+    let (mut changes, host) = following(&dir);
+    changes.receive(&host, "changes", Data::map([("diff", "big.txt".into())]));
+    let snapshot = changes.snapshot(true).unwrap();
+    assert_eq!(snapshot["partial"], true);
+    assert_eq!(snapshot["diff"]["truncated"], true);
+    fs::write(dir.join("big.txt"), "small\n").unwrap();
+    touch(&dir.join("big.txt"), 10);
+    let snapshot = changes.snapshot(false).unwrap();
+    assert_eq!(snapshot["partial"], false);
+    assert_eq!(snapshot["diff"]["truncated"], false);
+    fs::remove_dir_all(&dir).unwrap();
+}

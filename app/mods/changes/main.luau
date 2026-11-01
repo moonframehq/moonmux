@@ -271,7 +271,13 @@ return mod {
 					ui.text { "Changes", weight = "semibold" },
 					ready and ui.text { `{changed} {if changed == 1 then "file" else "files"}`, class = "changes-count" },
 					ui.spacer(),
-					ready and ui.text { `+{repo.added}`, size = "small", tone = "success" },
+					-- A new file longer than what is read counts its start only.
+					ready and ui.text {
+						if repo.partial then `+{repo.added}…` else `+{repo.added}`,
+						size = "small",
+						tone = "success",
+						tooltip = if repo.partial then "Large new files count their first 256 KiB" else nil,
+					},
 					ready and ui.text { `−{repo.deleted}`, size = "small", tone = "danger" },
 				},
 				ui.column { grow = true, gap = "none", body },
