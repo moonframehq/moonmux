@@ -75,5 +75,5 @@ Contributors and agents: read [AGENTS.md](AGENTS.md).
 
 ## License
 
-MIT; see [LICENSE](LICENSE). The icon draws Herdr's ram (Apache-2.0); see
+MIT; see [LICENSE](LICENSE). Third-party icons in the app are credited in
 [NOTICE](NOTICE).
