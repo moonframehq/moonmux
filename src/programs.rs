@@ -121,7 +121,9 @@ pub(crate) fn program_of(agent: &str) -> (&'static str, String) {
 }
 
 /// Where `name` is: on `path` (a `PATH` value), else in the usual folders
-/// under `home`, else in the package managers' folders.
+/// under `home`, else in the package managers' folders. On Windows only on
+/// `path`: an app there gets the user's whole `PATH`, and the shell finds
+/// what is on it by name, so no path ever needs quoting for it.
 pub(crate) fn find_executable(
     name: &str,
     path: Option<&OsStr>,
@@ -131,15 +133,34 @@ pub(crate) fn find_executable(
         .into_iter()
         .flat_map(std::env::split_paths)
         .filter(|dir| !dir.as_os_str().is_empty());
+    let fallbacks = !cfg!(windows);
     let in_home = home
+        .filter(|_| fallbacks)
         .into_iter()
         .flat_map(|home| HOME_BINS.iter().map(move |dir| home.join(dir)));
-    let in_system = SYSTEM_BINS.iter().map(PathBuf::from);
+    let in_system = SYSTEM_BINS.iter().filter(|_| fallbacks).map(PathBuf::from);
     on_path
         .chain(in_home)
         .chain(in_system)
         .flat_map(|dir| executable_names(name).map(move |file| dir.join(file)))
-        .find(|candidate| candidate.is_file())
+        .find(|candidate| runnable(candidate))
+}
+
+/// A file the shell can run: on Unix one with an execute bit set, so a
+/// stray file of an agent's name does not offer an agent that won't start.
+fn runnable(candidate: &Path) -> bool {
+    let Ok(metadata) = candidate.metadata() else {
+        return false;
+    };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        metadata.is_file()
+    }
 }
 
 /// The file names `name` may have: on Windows with its extensions.
@@ -181,13 +202,16 @@ fn installed_with(found: impl Fn(&str) -> bool) -> Value {
 }
 
 /// What to type in a shell to start `program`, found at `found`: its name
-/// when the shell finds it on `path`, else the whole path, quoted.
+/// when the shell finds it on `path`, else the whole path, quoted for a
+/// POSIX shell. Windows finds agents only on `PATH` (see
+/// [`find_executable`]), so there it is always the name.
 pub(crate) fn command_line(program: &Program, found: &Path, path: Option<&OsStr>) -> String {
-    let on_path = found.parent().is_some_and(|dir| {
-        path.into_iter()
-            .flat_map(std::env::split_paths)
-            .any(|entry| entry == dir)
-    });
+    let on_path = cfg!(windows)
+        || found.parent().is_some_and(|dir| {
+            path.into_iter()
+                .flat_map(std::env::split_paths)
+                .any(|entry| entry == dir)
+        });
     if on_path {
         return program.run.to_owned();
     }
@@ -209,6 +233,19 @@ mod tests {
         super::*,
         std::{collections::HashSet, fs},
     };
+
+    /// Writes a program file at `path`, runnable or not.
+    fn program_file(path: &Path, runnable: bool) {
+        fs::write(path, "").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let mode = if runnable { 0o755 } else { 0o644 };
+            fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
+        }
+        #[cfg(not(unix))]
+        let _ = runnable;
+    }
 
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
@@ -246,32 +283,68 @@ mod tests {
     }
 
     #[test]
-    fn executables_are_found_on_path_then_in_the_usual_folders() {
-        let root = scratch("find");
+    fn executables_are_found_on_path_first() {
+        let root = scratch("path");
+        let (first, second) = (root.join("first"), root.join("second"));
+        fs::create_dir_all(&first).unwrap();
+        fs::create_dir_all(&second).unwrap();
+        let name = format!("herdr-test-agent-{}", std::process::id());
+        let file = |dir: &Path| dir.join(executable_names(&name).next().unwrap());
+        let path = std::env::join_paths([&first, &second]).unwrap();
+        assert_eq!(find_executable(&name, Some(&path), None), None);
+        program_file(&file(&second), true);
+        assert_eq!(
+            find_executable(&name, Some(&path), None),
+            Some(file(&second))
+        );
+        program_file(&file(&first), true);
+        assert_eq!(
+            find_executable(&name, Some(&path), None),
+            Some(file(&first))
+        );
+        // A folder of that name is not a program.
+        let folder = format!("{name}-dir");
+        fs::create_dir_all(first.join(executable_names(&folder).next().unwrap())).unwrap();
+        assert_eq!(find_executable(&folder, Some(&path), None), None);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn the_usual_folders_are_looked_in_after_path() {
+        let root = scratch("home");
         let on_path = root.join("bin");
-        let home = root.join("home");
-        let local = home.join(".local/bin");
+        let local = root.join("home/.local/bin");
         fs::create_dir_all(&on_path).unwrap();
         fs::create_dir_all(&local).unwrap();
+        let home = root.join("home");
         let name = format!("herdr-test-agent-{}", std::process::id());
-        let file = |dir: &Path| dir.join(executable_names(&name).last().unwrap());
-        fs::write(file(&local), "").unwrap();
         let path = std::env::join_paths([&on_path]).unwrap();
+        program_file(&local.join(&name), true);
         assert_eq!(
             find_executable(&name, Some(&path), Some(&home)),
-            Some(file(&local))
+            Some(local.join(&name))
         );
-        fs::write(file(&on_path), "").unwrap();
+        program_file(&on_path.join(&name), true);
         assert_eq!(
             find_executable(&name, Some(&path), Some(&home)),
-            Some(file(&on_path))
+            Some(on_path.join(&name))
         );
-        assert_eq!(find_executable(&name, None, None), None);
-        // A folder of that name is not a program.
-        fs::create_dir_all(home.join(".cargo/bin").join(format!("{name}-dir"))).unwrap();
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_file_without_an_execute_bit_is_not_a_program() {
+        let root = scratch("mode");
+        let name = format!("herdr-test-agent-{}", std::process::id());
+        let path = std::env::join_paths([&root]).unwrap();
+        program_file(&root.join(&name), false);
+        assert_eq!(find_executable(&name, Some(&path), None), None);
+        program_file(&root.join(&name), true);
         assert_eq!(
-            find_executable(&format!("{name}-dir"), None, Some(&home)),
-            None
+            find_executable(&name, Some(&path), None),
+            Some(root.join(&name))
         );
         let _ = fs::remove_dir_all(&root);
     }
@@ -295,6 +368,7 @@ mod tests {
         assert_eq!(listed[0]["name"], "Claude Code");
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn the_command_is_the_name_when_the_shell_finds_it() {
         let claude = startable("claude").unwrap();
@@ -314,6 +388,16 @@ mod tests {
         assert_eq!(
             command_line(claude, Path::new("/home/it's me/bin/claude"), None),
             r"'/home/it'\''s me/bin/claude'"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn on_windows_the_command_is_always_the_name() {
+        let claude = startable("claude").unwrap();
+        assert_eq!(
+            command_line(claude, Path::new(r"C:\Users\me\bin\claude.exe"), None),
+            "claude"
         );
     }
 }
