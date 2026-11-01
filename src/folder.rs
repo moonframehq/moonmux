@@ -14,8 +14,8 @@
 //!   limited }                     -- some folder had more than shown
 //! ```
 //!
-//! What it takes: `{ root = "<folder>", open = "src\nsrc/app" }` (the
-//! folder, and its open folders one per line, the whole set each time), and
+//! What it takes: `{ root = "<folder>", open = { "src", "src/app" } }` (the
+//! folder, and its open folders, the whole set each time), and
 //! `{ read = "<path>", id }`, answered to the asking mod as
 //! `{ reply = id, action = "read", ok, path, text, truncated | error }`.
 //!
@@ -97,16 +97,16 @@ impl Folder {
         }
     }
 
-    fn follow(&mut self, asked: &str, open: &str) {
+    fn follow(&mut self, asked: &str, open: &[&str]) {
         if asked != self.asked {
             self.asked = asked.to_owned();
             self.root = git::folder(asked);
         }
         self.open = open
-            .lines()
+            .iter()
             .filter(|path| git::plain(path))
             .take(MAX_OPEN)
-            .map(str::to_owned)
+            .map(|path| (*path).to_owned())
             .collect();
     }
 }
@@ -154,7 +154,18 @@ impl Native for Folder {
             return;
         }
         if let Some(asked) = text("root") {
-            self.follow(asked, text("open").unwrap_or(""));
+            // A list, not lines: a folder's name may hold a newline.
+            let open: Vec<&str> = match fields.get("open") {
+                Some(Data::List(paths)) => paths
+                    .iter()
+                    .filter_map(|path| match path {
+                        Data::String(path) => Some(path.as_str()),
+                        _ => None,
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            };
+            self.follow(asked, &open);
             self.ticks = 0;
             self.publish(host);
         }
@@ -402,7 +413,10 @@ mod tests {
         let mut folder = Folder::new();
         folder.start(&host).unwrap();
         let asked = root.to_string_lossy().into_owned();
-        let follow = Data::map([("root", Data::from(asked.as_str())), ("open", "src".into())]);
+        let follow = Data::map([
+            ("root", Data::from(asked.as_str())),
+            ("open", Data::List(vec!["src".into()])),
+        ]);
         folder.receive(&host, "someones-package", follow.clone());
         assert!(folder.root.is_none());
         folder.receive(&host, "files#right", follow);
@@ -416,12 +430,34 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
+    fn a_folder_named_with_a_newline_opens() {
+        let root = project();
+        fs::create_dir_all(root.join("a\nb")).unwrap();
+        fs::write(root.join("a\nb/inside.txt"), "").unwrap();
+        let settings = Data::map([("readers", vec!["files"].into())]);
+        let host = Handle::new("folder", &root, settings, Arc::new(|_| {}));
+        let mut folder = Folder::new();
+        folder.start(&host).unwrap();
+        let asked = root.to_string_lossy().into_owned();
+        let open = Data::List(vec!["a\nb".into()]);
+        folder.receive(
+            &host,
+            "files",
+            Data::map([("root", Data::from(asked.as_str())), ("open", open)]),
+        );
+        assert_eq!(folder.open, ["a\nb"]);
+        assert_eq!(folder.snapshot()["dirs"]["a\nb"][0]["name"], "inside.txt");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
     fn a_missing_folder_says_so() {
         let mut folder = Folder::new();
         assert_eq!(folder.snapshot()["reason"], "No folder");
-        folder.follow("/no/such/folder/here", "");
+        folder.follow("/no/such/folder/here", &[]);
         assert_eq!(folder.snapshot()["available"], false);
-        folder.follow("relative/path", "");
+        folder.follow("relative/path", &[]);
         assert!(folder.root.is_none());
     }
 

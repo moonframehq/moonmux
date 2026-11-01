@@ -144,7 +144,14 @@ impl Changes {
         )
         .map(|output| output.bytes)
         .unwrap_or_default();
+        // Read before the look ends early: switching branches in a clean
+        // repository changes nothing else.
+        let branch = git::read(&root, &["rev-parse", "--abbrev-ref", "HEAD"], 4096)
+            .map(|output| String::from_utf8_lossy(&output.bytes).trim().to_owned())
+            .unwrap_or_default();
         let mut look = status.bytes.clone();
+        look.extend_from_slice(branch.as_bytes());
+        look.push(0);
         look.push(0xff);
         look.extend_from_slice(&numstat);
         look.extend_from_slice(self.diff_path.as_deref().unwrap_or("").as_bytes());
@@ -157,9 +164,6 @@ impl Changes {
         }
         self.last_look = look;
         let files = files(&root, changes, &numstat);
-        let branch = git::read(&root, &["rev-parse", "--abbrev-ref", "HEAD"], 4096)
-            .map(|output| String::from_utf8_lossy(&output.bytes).trim().to_owned())
-            .unwrap_or_default();
         let diff = self
             .diff_path
             .as_deref()

@@ -290,3 +290,16 @@ fn a_new_file_longer_than_what_is_read_says_so() {
     assert_eq!(snapshot["diff"]["truncated"], false);
     fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn switching_branches_in_a_clean_repository_shows_the_new_one() {
+    let dir = repository();
+    let (mut changes, _host) = following(&dir);
+    let first = changes.snapshot(true).unwrap()["branch"].clone();
+    git(&dir, &["switch", "-q", "-c", "other"]);
+    let snapshot = changes.snapshot(false).expect("the switch is seen");
+    assert_eq!(snapshot["branch"], "other");
+    assert_ne!(snapshot["branch"], first);
+    assert!(changes.snapshot(false).is_none());
+    fs::remove_dir_all(&dir).unwrap();
+}

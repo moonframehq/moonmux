@@ -63,7 +63,8 @@ local function follow(state: State): { any }
 		table.insert(paths, path)
 	end
 	table.sort(paths)
-	return { { to = "provider:folder", msg = { root = folder, open = table.concat(paths, "\n") } } }
+	-- A list, not lines: a folder's name may hold a newline.
+	return { { to = "provider:folder", msg = { root = folder, open = paths } } }
 end
 
 -- Follows the focused pane's folder when it moved.
