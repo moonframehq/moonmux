@@ -11,9 +11,9 @@
 //! What it publishes:
 //!
 //! ```text
-//! { ok, error, core = { name, version },
+//! { ok, error, now, core = { name, version },
 //!   terminals = { { address, name, agent, program, program_key, cwd, status,
-//!                   turn, ours, pane, is_agent } },
+//!                   status_ms, turn, parent, ours, pane, is_agent } },
 //!   counts = { live, agents, working, blocked, done },
 //!   ended = { "p3", ... },   -- this app's panes whose shell exited
 //!   programs = { { key, name, installed } },   -- the agents "+" can start
@@ -24,7 +24,10 @@
 //!
 //! A terminal's `program` is what to call it (`Claude Code`, `zsh`), and
 //! `program_key` the key its icon is drawn by (`claude`, `shell`, or `""`
-//! for one the app does not know): see programs.rs.
+//! for one the app does not know): see programs.rs. `status_ms` is when it
+//! entered its status (ms since the epoch; 0 without one), and `now` the
+//! time rounded down to the minute, for the views to count ages by: Luau
+//! has no clock. `parent` is the terminal that started it, if any.
 //!
 //! What it takes: `{ watch = "t7" }` (publish that terminal's screen as
 //! `peek` each tick; `""` stops), `{ send = "t7", text }`,
@@ -101,11 +104,23 @@ struct Labels {
     started: String,
 }
 
+/// When a terminal's status last changed, by herdr-core's clock (`status_ms`
+/// in `hc get`; `hc ls` leaves it out), and the status and turn it was read
+/// for: a new one is read only when they change.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct Stamp {
+    status: String,
+    turn: i64,
+    ms: i64,
+}
+
 pub(crate) struct Core {
     /// The `hc` found on this machine.
     hc: Option<PathBuf>,
     /// Labels by address, for the terminals live at the last tick.
     labels: HashMap<String, Labels>,
+    /// Status times by address, for the terminals live at the last tick.
+    stamps: HashMap<String, Stamp>,
     /// The terminal shown in a peek, if any.
     watching: String,
     /// The server's name and version, looked at now and then.
@@ -131,6 +146,7 @@ impl Core {
         Self {
             hc: find_hc(),
             labels: HashMap::new(),
+            stamps: HashMap::new(),
             watching: String::new(),
             server: Value::Null,
             machines: Value::Null,
@@ -182,6 +198,31 @@ impl Core {
         labels
     }
 
+    /// When `terminal` (from `hc ls`) entered its status, in ms since the
+    /// epoch: from the cache while its status and turn stay, else `hc get`.
+    /// 0 for a terminal reporting no status.
+    fn status_ms(&mut self, terminal: &Value) -> i64 {
+        let status = text(terminal, "status");
+        if status.is_empty() {
+            return 0;
+        }
+        let address = text(terminal, "address");
+        let turn = turn(terminal);
+        if let Some(stamp) = self.stamps.get(&address)
+            && stamp.status == status
+            && stamp.turn == turn
+        {
+            return stamp.ms;
+        }
+        // A failed read is not kept: the next tick tries again.
+        let Ok(got) = self.hc_json(&["get", &address, "--json"]) else {
+            return 0;
+        };
+        let ms = got.get("status_ms").and_then(Value::as_i64).unwrap_or(0);
+        self.stamps.insert(address, Stamp { status, turn, ms });
+        ms
+    }
+
     fn snapshot(&mut self) -> Value {
         if (self.ticks.is_multiple_of(SERVER_EVERY) || self.server.is_null())
             && let Ok(status) = self.hc_json(&["server", "status", "--json"])
@@ -227,13 +268,15 @@ impl Core {
             .map(str::to_owned)
             .collect();
         self.labels.retain(|address, _| live.contains(address));
+        self.stamps.retain(|address, _| live.contains(address));
         let mut terminals = Vec::new();
         let mut finished = Vec::new();
         for terminal in &raw {
             let address = text(terminal, "address");
             let labels = self.labels_of(&address);
             if text(terminal, "state") == "live" {
-                terminals.push(entry(terminal, &labels, &home));
+                let since = self.status_ms(terminal);
+                terminals.push(entry(terminal, &labels, since, &home));
             } else if labels.ours && !labels.pane.is_empty() {
                 finished.push(labels.pane);
             }
@@ -242,6 +285,7 @@ impl Core {
         let mut snapshot = json!({
             "ok": true,
             "error": "",
+            "now": to_minute(now_ms()),
             "core": self.server,
             "counts": counts(&terminals),
             "terminals": terminals,
@@ -603,8 +647,28 @@ fn is_agent(agent: &str, status: &str) -> bool {
     !status.is_empty() || AGENTS.contains(&agent)
 }
 
-/// One terminal as the mods read it.
-fn entry(terminal: &Value, labels: &Labels, home: &str) -> Value {
+fn turn(terminal: &Value) -> i64 {
+    terminal.get("turn").and_then(Value::as_i64).unwrap_or(0)
+}
+
+/// Now, in ms since the epoch, as herdr-core counts `status_ms`.
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| {
+            i64::try_from(since.as_millis()).unwrap_or(i64::MAX)
+        })
+}
+
+/// `ms` rounded down to the minute: the clock the views count ages by
+/// ("4m"), which changes what is published once a minute, not each tick.
+fn to_minute(ms: i64) -> i64 {
+    ms - ms.rem_euclid(60_000)
+}
+
+/// One terminal as the mods read it; `status_ms` is when it entered its
+/// status.
+fn entry(terminal: &Value, labels: &Labels, status_ms: i64, home: &str) -> Value {
     let agent = text(terminal, "agent");
     let status = text(terminal, "status");
     let (key, program) = crate::programs::program_of(&agent);
@@ -617,7 +681,9 @@ fn entry(terminal: &Value, labels: &Labels, home: &str) -> Value {
         "agent": agent,
         "is_agent": is_agent(&agent, &status),
         "status": status,
-        "turn": terminal.get("turn").and_then(Value::as_i64).unwrap_or(0),
+        "status_ms": status_ms,
+        "parent": text(terminal, "parent"),
+        "turn": turn(terminal),
         "ours": labels.ours,
         "pane": labels.pane,
     })
@@ -735,7 +801,7 @@ mod tests {
         };
         let entries: Vec<Value> = listed
             .iter()
-            .map(|terminal| entry(terminal, &ours, "/home/u"))
+            .map(|terminal| entry(terminal, &ours, 0, "/home/u"))
             .collect();
         assert_eq!(entries[0]["cwd"], "~/x");
         assert_eq!(entries[0]["is_agent"], false);
@@ -752,6 +818,56 @@ mod tests {
         assert_eq!(counts["working"], 1);
         assert_eq!(counts["blocked"], 1);
         assert_eq!(counts["done"], 0);
+    }
+
+    #[test]
+    fn entries_say_the_program_its_parent_and_since_when() {
+        let helper = json!({ "address": "t4", "agent": "claude", "status": "working", "parent": "t2", "turn": 1 });
+        let entry = entry(&helper, &Labels::default(), 1_793_567_863_379, "/home/u");
+        assert_eq!(entry["program"], "Claude Code");
+        assert_eq!(entry["parent"], "t2");
+        assert_eq!(entry["status_ms"], 1_793_567_863_379_i64);
+        let alone = json!({ "address": "t5", "agent": "my-bot" });
+        let alone = super::entry(&alone, &Labels::default(), 0, "/home/u");
+        assert_eq!(alone["program"], "my-bot");
+        assert_eq!(alone["parent"], "");
+    }
+
+    #[test]
+    fn the_clock_is_published_by_the_minute() {
+        assert_eq!(to_minute(1_793_567_863_379), 1_793_567_820_000);
+        assert_eq!(to_minute(1_793_567_820_000), 1_793_567_820_000);
+        assert_eq!(to_minute(59_999), 0);
+        assert!(now_ms() > 1_700_000_000_000);
+    }
+
+    #[test]
+    fn status_times_are_read_again_only_when_the_status_changes() {
+        let mut core = Core {
+            hc: None,
+            ..Core::new()
+        };
+        // No status: nothing to read.
+        assert_eq!(
+            core.status_ms(&json!({ "address": "t1", "agent": "zsh" })),
+            0
+        );
+        assert!(core.stamps.is_empty());
+        let working = json!({ "address": "t2", "status": "working", "turn": 3 });
+        core.stamps.insert(
+            "t2".into(),
+            Stamp {
+                status: "working".into(),
+                turn: 3,
+                ms: 42,
+            },
+        );
+        assert_eq!(core.status_ms(&working), 42);
+        // A new status is looked up. Here `hc` is missing, so the read
+        // fails: it says 0 and keeps the old stamp, to try again next tick.
+        let done = json!({ "address": "t2", "status": "done", "turn": 3 });
+        assert_eq!(core.status_ms(&done), 0);
+        assert_eq!(core.stamps["t2"].status, "working");
     }
 
     #[test]
