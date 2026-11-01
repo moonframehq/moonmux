@@ -17,7 +17,9 @@
 //!   counts = { live, agents, working, blocked, done },
 //!   ended = { "p3", ... },   -- this app's panes whose shell exited
 //!   programs = { { key, name, installed } },   -- the agents "+" can start
-//!   peek = { address, text } }
+//!   peek = { address, text },
+//!   app_version,             -- this app's version
+//!   machines = { ok, error, list = { { name, target, state, version } } } }
 //! ```
 //!
 //! A terminal's `program` is what to call it (`Claude Code`, `zsh`), and
@@ -37,6 +39,12 @@
 //! answers agents running elsewhere. So only the mods named in
 //! provider.toml's `[settings] writers` may send them, as Moonframe's git
 //! provider does; a mod from a package the user installed is refused.
+//!
+//! Any mod may send two requests that touch no terminal: `{ refresh =
+//! "machines" }` (read `hc machine ls` again at once, rather than at the
+//! next look at the server) and `{ open = "releases" }` (open this app's
+//! releases page in the browser: the only address it opens), answered as
+//! `{ reply = "open", address, ok, error }`. Each runs at most once a tick.
 
 use {
     moonframe::{Data, Handle, Native},
@@ -54,6 +62,8 @@ const PANE_MOD: &str = "pane#";
 const SERVER_EVERY: u64 = 30;
 /// Lines of history above the screen a peek shows.
 const PEEK_LINES: &str = "60";
+/// Where this app's releases are, for Settings > Updates.
+const RELEASES: &str = "https://github.com/penso/herdr-moonframe/releases";
 /// The label marking a pane's terminal as given its agent: `start` types
 /// into a terminal only while it has none.
 const START_LABEL: &str = "herdr-moonframe-start";
@@ -100,6 +110,12 @@ pub(crate) struct Core {
     watching: String,
     /// The server's name and version, looked at now and then.
     server: Value,
+    /// The machines herdr-core reaches over ssh, read as often as `server`.
+    machines: Value,
+    /// The tick of the last refresh and of the last page opened: any mod
+    /// may ask for either, so each runs at most once a tick.
+    refreshed: Option<u64>,
+    opened: Option<u64>,
     /// The startable agents and whether each is installed, looked at now
     /// and then.
     programs: Value,
@@ -117,6 +133,9 @@ impl Core {
             labels: HashMap::new(),
             watching: String::new(),
             server: Value::Null,
+            machines: Value::Null,
+            refreshed: None,
+            opened: None,
             programs: Value::Null,
             ticks: 0,
             last: Value::Null,
@@ -172,6 +191,9 @@ impl Core {
                 "version": status.get("version").and_then(Value::as_str).unwrap_or(""),
             });
         }
+        if self.ticks.is_multiple_of(SERVER_EVERY) || self.machines.is_null() {
+            self.machines = machines(self.hc_json(&["machine", "ls", "--json"]));
+        }
         if self.ticks.is_multiple_of(PROGRAMS_EVERY) || self.programs.is_null() {
             self.programs = crate::programs::installed();
         }
@@ -179,7 +201,16 @@ impl Core {
         let listed = match self.hc_json(&["ls", "--all", "--json"]) {
             Ok(listed) => listed,
             Err(error) => {
-                return json!({ "ok": false, "error": error, "terminals": [], "counts": counts(&[]) });
+                // Settings still shows the app's version and why the
+                // machines could not be read.
+                return json!({
+                    "ok": false,
+                    "error": error,
+                    "terminals": [],
+                    "counts": counts(&[]),
+                    "app_version": env!("CARGO_PKG_VERSION"),
+                    "machines": self.machines,
+                });
             }
         };
         let home = std::env::var("HOME").unwrap_or_default();
@@ -215,6 +246,8 @@ impl Core {
             "counts": counts(&terminals),
             "terminals": terminals,
             "ended": ended,
+            "app_version": env!("CARGO_PKG_VERSION"),
+            "machines": self.machines,
             "programs": self.programs,
         });
         if !self.watching.is_empty() {
@@ -349,6 +382,26 @@ impl Native for Core {
     }
 
     fn receive(&mut self, host: &Handle, from: &str, message: Data) {
+        // What touches no terminal, any mod may ask.
+        if message.get("refresh").and_then(Data::as_str) == Some("machines") {
+            if once_a_tick(&mut self.refreshed, self.ticks) {
+                self.machines = Value::Null;
+                self.publish(host);
+            }
+            return;
+        }
+        if let Some(page) = message.get("open").and_then(Data::as_str) {
+            let result = if once_a_tick(&mut self.opened, self.ticks) {
+                open_page(page)
+            } else {
+                Err("a page was opened a moment ago".to_owned())
+            };
+            if let Err(error) = &result {
+                tracing::warn!("core: open {page}: {error}");
+            }
+            host.send(from, reply("open", page, result));
+            return;
+        }
         // Typing into, interrupting or reading another program's terminal
         // is for this app's own mods, never one from elsewhere.
         if !may_act(&self.writers, from) {
@@ -374,18 +427,93 @@ impl Native for Core {
             if let Err(error) = &result {
                 tracing::warn!("core: {action} {address}: {error}");
             }
-            host.send(
-                from,
-                Data::map([
-                    ("reply", action.into()),
-                    ("address", address.into()),
-                    ("ok", result.is_ok().into()),
-                    ("error", result.err().unwrap_or_default().into()),
-                ]),
-            );
+            host.send(from, reply(action, &address, result));
         }
         self.publish(host);
     }
+}
+
+/// Whether what was last done at tick `last` may run again at `now`, and
+/// if so, marks it done now.
+fn once_a_tick(last: &mut Option<u64>, now: u64) -> bool {
+    if *last == Some(now) {
+        return false;
+    }
+    *last = Some(now);
+    true
+}
+
+/// The answer to an action: `{ reply = <action>, address, ok, error }`.
+fn reply(action: &str, address: &str, result: Result<String, String>) -> Data {
+    Data::map([
+        ("reply", action.into()),
+        ("address", address.into()),
+        ("ok", result.is_ok().into()),
+        ("error", result.err().unwrap_or_default().into()),
+    ])
+}
+
+/// The address of a page `{ open = <page> }` may name.
+fn page_address(page: &str) -> Option<&'static str> {
+    match page {
+        "releases" => Some(RELEASES),
+        _ => None,
+    }
+}
+
+/// Opens `page` in the system's browser.
+fn open_page(page: &str) -> Result<String, String> {
+    let address = page_address(page).ok_or_else(|| format!("no page called {page:?}"))?;
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(windows) {
+        "explorer"
+    } else {
+        "xdg-open"
+    };
+    let status = new_command(opener)
+        .arg(address)
+        .status()
+        .map_err(|error| format!("{opener}: {error}"))?;
+    opened(opener, status.success(), status.code())
+}
+
+/// Whether the opener's exit says the page opened. explorer exits with 1
+/// even when it opened the page, so on Windows only a start failure counts.
+fn opened(opener: &str, success: bool, code: Option<i32>) -> Result<String, String> {
+    if success || cfg!(windows) {
+        return Ok(String::new());
+    }
+    Err(match code {
+        Some(code) => format!("{opener} could not open the page (exit {code})"),
+        None => format!("{opener} could not open the page"),
+    })
+}
+
+/// What `hc machine ls --json` said, as the mods read it: the machines
+/// added for good (not ones a command reached once), or why it failed.
+fn machines(listed: Result<Value, String>) -> Value {
+    let listed = match listed {
+        Ok(listed) => listed,
+        Err(error) => return json!({ "ok": false, "error": error, "list": [] }),
+    };
+    let list: Vec<Value> = listed
+        .get("machines")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|machine| machine.get("temporary").and_then(Value::as_bool) != Some(true))
+        .map(|machine| {
+            json!({
+                "name": text(machine, "name"),
+                "target": text(machine, "target"),
+                "state": text(machine, "state"),
+                "version": text(machine, "version"),
+            })
+        })
+        .filter(|machine| machine["name"] != "")
+        .collect();
+    json!({ "ok": true, "error": "", "list": list })
 }
 
 /// A child process that opens no console window on Windows, where a
@@ -648,6 +776,71 @@ mod tests {
         let live = [json!({ "pane": "p2" })];
         let finished = vec!["p3".to_owned(), "p2".to_owned(), "p3".to_owned()];
         assert_eq!(ended_panes(finished, &live), vec!["p3".to_owned()]);
+    }
+
+    #[test]
+    fn machines_are_listed_without_temporary_ones() {
+        let listed = json!({ "machines": [
+            { "name": "vps", "target": "me@vps", "state": "connected", "version": "0.4.1" },
+            { "name": "once", "target": "once", "state": "connected", "temporary": true },
+            { "name": "mini", "target": "mini.local", "state": "offline" },
+            { "target": "nameless" },
+        ] });
+        let machines = machines(Ok(listed));
+        assert_eq!(machines["ok"], true);
+        let names: Vec<&str> = machines["list"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|machine| machine["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(names, ["vps", "mini"]);
+        assert_eq!(machines["list"][0]["target"], "me@vps");
+        assert_eq!(machines["list"][0]["version"], "0.4.1");
+        assert_eq!(machines["list"][1]["version"], "");
+    }
+
+    #[test]
+    fn machines_that_cannot_be_read_say_why() {
+        let machines = machines(Err("hc machine: refused".to_owned()));
+        assert_eq!(machines["ok"], false);
+        assert_eq!(machines["error"], "hc machine: refused");
+        assert_eq!(machines["list"], json!([]));
+        assert_eq!(super::machines(Ok(json!({})))["list"], json!([]));
+    }
+
+    #[test]
+    fn only_the_releases_page_opens() {
+        assert_eq!(page_address("releases"), Some(RELEASES));
+        assert_eq!(page_address("https://example.com"), None);
+        assert!(open_page("file:///etc/passwd").is_err());
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn a_failed_opener_is_reported() {
+        assert!(opened("open", true, Some(0)).is_ok());
+        let error = opened("xdg-open", false, Some(3)).unwrap_err();
+        assert!(error.contains("exit 3"), "{error}");
+        assert!(opened("open", false, None).is_err());
+    }
+
+    #[test]
+    fn requests_any_mod_may_send_run_once_a_tick() {
+        let mut last = None;
+        assert!(once_a_tick(&mut last, 4));
+        assert!(!once_a_tick(&mut last, 4));
+        assert!(once_a_tick(&mut last, 5));
+    }
+
+    #[test]
+    fn replies_carry_the_action_and_its_outcome() {
+        let ok = reply("open", "releases", Ok(String::new()));
+        assert_eq!(ok.get("reply").and_then(Data::as_str), Some("open"));
+        assert_eq!(ok.get("ok"), Some(&Data::Bool(true)));
+        let failed = reply("send", "t1", Err("gone".to_owned()));
+        assert_eq!(failed.get("ok"), Some(&Data::Bool(false)));
+        assert_eq!(failed.get("error").and_then(Data::as_str), Some("gone"));
     }
 
     #[test]

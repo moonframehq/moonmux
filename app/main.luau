@@ -1,6 +1,7 @@
 -- Herdr's shell: the sidebar (spaces, then the agents in them and
 -- elsewhere) on the left, the chosen space's tabs and split panes in a card
--- on the right, a status line under both, and the peek sheet over them.
+-- on the right, a status line under both, and the peek sheet over them;
+-- over all of them Settings, the command palette and the Welcome.
 -- The title bar is hidden: its traffic lights sit over the sidebar, or
 -- over the tab strip while the sidebar is folded.
 
@@ -16,8 +17,12 @@ local MENUS: { { title: string, items: { any } } } = {
 		"-",
 		{ label = "Close Pane", msg = "close-pane", to = "workspace", shortcut = "secondary-w" },
 		{ label = "Close Tab", msg = "close-tab", to = "workspace", shortcut = "secondary-shift-w" },
+		"-",
+		{ label = "Settings…", msg = "open", to = "settings", shortcut = "secondary-," },
 	} },
 	{ title = "View", items = {
+		{ label = "Command Palette…", msg = "open", to = "palette", shortcut = "secondary-shift-p" },
+		"-",
 		{ label = "Show or Hide Sidebar", msg = "toggle-left", shortcut = "secondary-b" },
 		{ label = "Themes…", command = "show-themes" },
 		"-",
@@ -44,6 +49,9 @@ local MENUS: { { title: string, items: { any } } } = {
 		{ label = "Minimize", command = "minimize", shortcut = "secondary-m" },
 		{ label = "Zoom", command = "maximize" },
 	} },
+	{ title = "Help", items = {
+		{ label = "Welcome to Herdr", msg = "open", to = "welcome" },
+	} },
 }
 
 return mod {
@@ -62,7 +70,9 @@ return mod {
 
 	init = function(previous)
 		local state = { left = if previous then previous.left ~= false else true, status = true }
-		return state, { { to = "workspace", msg = { sidebar = state.left } } }
+		-- The palette lists what the menus offer.
+		local sends: { any } = { { to = "workspace", msg = { sidebar = state.left } }, { to = "palette", msg = { menus = MENUS } } }
+		return state, sends
 	end,
 
 	update = function(state, msg)
@@ -91,6 +101,9 @@ return mod {
 			body,
 			state.status and ui.mount "statusbar",
 			ui.mount "peek",
+			ui.mount "settings",
+			ui.mount "palette",
+			ui.mount "welcome",
 		}
 	end,
 }

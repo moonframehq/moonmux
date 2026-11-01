@@ -31,7 +31,7 @@ type State = {
 	next: number,
 	sidebar: boolean,
 	dialog: Dialog?,
-	-- What the layout picker (mods/layout) chose: { tabs, headers }.
+	-- What Settings > Look (mods/settings) chose: { tabs, headers }.
 	layout: any,
 	-- The agent each new pane is to start, by pane, until it is sent.
 	starts: { [string]: string }?,
@@ -572,9 +572,8 @@ return mod {
 			tab and icon_button { icon = "columns-2", tooltip = "Split right (⌘D)", msg = { split = tab.active, dir = "row" } },
 			tab and icon_button { icon = "rows-2", tooltip = "Split down (⇧⌘D)", msg = { split = tab.active, dir = "column" } },
 			ui.row { class = "ws-tools-gap" },
-			-- The layout picker (mods/layout), in a window of its own that
-			-- stays open while you try choices.
-			ui.row { class = "ws-tool", align = "center", justify = "center", window = "layout", tooltip = "Layout", ui.icon { "layout-dashboard" } },
+			-- The layout choices, in Settings > Look (mods/settings).
+			ui.row { class = "ws-tool", align = "center", justify = "center", msg = { open = "look" }, to = "settings", tooltip = "Layout", ui.icon { "layout-dashboard" } },
 			-- Send feedback (the built-in mods/feedback): ask an agent to change this app.
 			ui.mount "feedback",
 			ui.row { class = "ws-tool", align = "center", justify = "center", command = "show-themes", tooltip = "Themes", ui.icon { "palette" } },

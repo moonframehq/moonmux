@@ -6,6 +6,7 @@
 -- looked elsewhere) or Idle. A done agent you have looked at (its pane is
 -- on screen, or you peeked at it since it finished) shows as Idle.
 -- Clicking one of ours shows its pane; clicking any other peeks at it.
+-- Settings and Add machine sit at the bottom.
 
 local icon_button = use "icon-button"
 local status_dot = use "status-dot"
@@ -64,6 +65,9 @@ return mod {
 		[".sb-count"] = { size = "small", color = "muted-foreground" },
 		[".sb-empty"] = { size = "small", color = "muted-foreground", padding = { 4, 8 } },
 		[".sb-problem"] = { size = "small", color = "danger", padding = { 4, 8 } },
+		[".sb-foot"] = { padding = { 6, 8, 10, 10 }, gap = 0, border = "top", border_color = "border" },
+		[".sb-foot-row"] = { color = "muted-foreground" },
+		[".sb-foot-row:hover"] = { color = "foreground" },
 	},
 
 	init = function(previous: State?): State
@@ -263,6 +267,27 @@ return mod {
 				section("agents", "Agents", #ours, nil, agent_rows),
 				#other_rows > 0 and section("elsewhere", "Elsewhere", #other_rows, nil, other_rows),
 				problem,
+			},
+			ui.column {
+				class = "sb-foot",
+				shrink = false,
+				ui.row {
+					class = "sb-row sb-foot-row",
+					align = "center",
+					msg = "open",
+					to = "settings",
+					tooltip = "⌘,",
+					ui.icon { name = "settings" },
+					ui.text { "Settings" },
+				},
+				ui.row {
+					class = "sb-row sb-foot-row",
+					align = "center",
+					msg = { open = "machines" },
+					to = "settings",
+					ui.icon { name = "plus" },
+					ui.text { "Add machine" },
+				},
 			},
 		}
 	end,

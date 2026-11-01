@@ -25,13 +25,15 @@ window must leave herdr-core and its terminals running.
 | Location | Responsibility |
 | --- | --- |
 | `src/main.rs` | `Moonframe::new("herdr-moonframe")`: `app/` read live from the checkout, else compiled in (`AppFiles`) |
-| `src/core.rs` | The `core` native provider (`app.core`): `hc ls` each second, labels via `hc get`, a peek (`hc read`), and actions (send, keys, interrupt, kill, close_panes); `new_command` for every child process |
+| `src/core.rs` | The `core` native provider (`app.core`): `hc ls` each second, labels via `hc get`, a peek (`hc read`), machines (`hc machine ls`), actions (send, keys, interrupt, kill, close_panes), and opening the releases page; `new_command` for every child process |
 | `app/main.luau` | The shell: sidebar, workspace card, status line, peek sheet; menus and their shortcuts |
 | `app/mods/workspace` | Spaces, their tabs, and each tab's tree of split panes, all in its state; the tab strip is the title bar. Publishes `topic:herdr/workspace` |
 | `app/mods/pane` | One instance per pane (`pane#p3`), each owning one terminal (`pane#p3/term`) |
 | `app/mods/sidebar` | Spaces, then agents in our panes, then agents elsewhere |
 | `app/mods/peek`, `app/mods/statusbar` | The peek sheet and the status line |
-| `app/mods/layout` | The layout picker (tab style, pane headers, status line), opened in its own window; publishes `topic:herdr/layout` |
+| `app/mods/settings` | The Settings dialog (⌘,): Look (appearance, theme, and the layout choices it publishes on `topic:herdr/layout`), Machines, Alerts, Updates, Privacy |
+| `app/mods/palette`, `app/mods/welcome` | The command palette (⌘⇧P), fed the shell's menus; the first-launch Welcome (Help > Welcome to Herdr) |
+| `app/components` | The app's own components (`appearance`, shared by Settings and Welcome) |
 | `app/style.luau` | The look, merged over Moonframe's stylesheet |
 | `scripts/release`, `.github/workflows` | Packaging, signing and releasing (`docs/releasing.md`) |
 
