@@ -170,35 +170,8 @@ local function agents_list(ctx: Context): { ours: { any }, elsewhere: { any }, c
 		end
 	end
 
-	-- An agent elsewhere that a listed agent started shows under it instead.
-	local listed = {}
-	for _, terminal in ctx.ours do
-		listed[terminal.address] = true
-	end
-	for _, terminal in ctx.elsewhere do
-		listed[terminal.address] = true
-	end
-	local function nested(terminal): boolean
-		local up = by_address[terminal.parent or ""]
-		for _ = 1, MAX_DEPTH do
-			if not up then
-				return false
-			elseif listed[up.address] then
-				return true
-			end
-			up = by_address[up.parent or ""]
-		end
-		return false
-	end
-	local elsewhere = {}
-	for _, terminal in ctx.elsewhere do
-		if not nested(terminal) then
-			table.insert(elsewhere, terminal)
-		end
-	end
-
 	-- Each listed agent's status, its helpers, and how urgent the two are.
-	local status, subs, urgency = {}, {}, {}
+	local status, subs, urgency, drawn = {}, {}, {}, {}
 	local function rate(terminal)
 		local own = shown_status(terminal, state.seen, ctx.visible)
 		local below = {}
@@ -206,14 +179,46 @@ local function agents_list(ctx: Context): { ours: { any }, elsewhere: { any }, c
 		local level = LOUDNESS[own] or 1
 		for _, sub in below do
 			level = math.max(level, LOUDNESS[helper_status(sub.terminal)] or 0)
+			drawn[sub.terminal.address] = true
 		end
 		status[terminal.address], subs[terminal.address], urgency[terminal.address] = own, below, level
 	end
 	for _, terminal in ctx.ours do
 		rate(terminal)
 	end
-	for _, terminal in elsewhere do
-		rate(terminal)
+
+	-- An agent elsewhere that a listed agent started shows under it instead,
+	-- but only when that agent's tree draws it: one nested deeper than the
+	-- tree goes, or in a loop of parents, keeps a row of its own.
+	local listed = {}
+	for _, terminal in ctx.ours do
+		listed[terminal.address] = true
+	end
+	for _, terminal in ctx.elsewhere do
+		listed[terminal.address] = true
+	end
+	local function started_by_listed(terminal): boolean
+		local passed = {}
+		local up = by_address[terminal.parent or ""]
+		while up and not passed[up.address] do
+			if listed[up.address] then
+				return true
+			end
+			passed[up.address] = true
+			up = by_address[up.parent or ""]
+		end
+		return false
+	end
+	local elsewhere = {}
+	-- First the agents no listed one started, then any no tree drew.
+	for pass = 1, 2 do
+		for _, terminal in ctx.elsewhere do
+			local free = not drawn[terminal.address] and status[terminal.address] == nil
+			if free and (pass == 2 or not started_by_listed(terminal)) then
+				rate(terminal)
+				table.insert(elsewhere, terminal)
+			end
+		end
 	end
 	local function by_urgency(list: { any }): { any }
 		local sorted = table.clone(list)
@@ -233,7 +238,10 @@ local function agents_list(ctx: Context): { ours: { any }, elsewhere: { any }, c
 		if since <= 0 or now <= 0 then
 			return false
 		end
-		return ui.row { shrink = false, ui.text { age(math.max(0, now - since)), class = "sb-age" } }
+		-- `now` is a minute's start: count whole minutes from the minute
+		-- the state began in, so the age never lags a minute behind.
+		local began = since - since % 60000
+		return ui.row { shrink = false, ui.text { age(math.max(0, now - began)), class = "sb-age" } }
 	end
 
 	local function click(terminal, turn): (any, string)

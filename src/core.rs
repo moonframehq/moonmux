@@ -183,10 +183,11 @@ impl Core {
         {
             return stamp.ms;
         }
-        let ms = self
-            .hc_json(&["get", &address, "--json"])
-            .map(|got| got.get("status_ms").and_then(Value::as_i64).unwrap_or(0))
-            .unwrap_or(0);
+        // A failed read is not kept: the next tick tries again.
+        let Ok(got) = self.hc_json(&["get", &address, "--json"]) else {
+            return 0;
+        };
+        let ms = got.get("status_ms").and_then(Value::as_i64).unwrap_or(0);
         self.stamps.insert(address, Stamp { status, turn, ms });
         ms
     }
@@ -691,10 +692,11 @@ mod tests {
             },
         );
         assert_eq!(core.status_ms(&working), 42);
-        // A new status is looked up (here `hc` is missing, so it is 0).
+        // A new status is looked up. Here `hc` is missing, so the read
+        // fails: it says 0 and keeps the old stamp, to try again next tick.
         let done = json!({ "address": "t2", "status": "done", "turn": 3 });
         assert_eq!(core.status_ms(&done), 0);
-        assert_eq!(core.stamps["t2"].status, "done");
+        assert_eq!(core.stamps["t2"].status, "working");
     }
 
     #[test]
