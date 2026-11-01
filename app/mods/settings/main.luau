@@ -5,7 +5,9 @@
 --
 -- Look holds the layout choices (tab style, pane headers, status line),
 -- kept on the topic `herdr/layout` as { tabs, headers, status }, which the
--- workspace and the shell draw to match. Machines lists `app.core.machines`
+-- workspace and the shell draw to match, and the appearance (System, Light
+-- or Dark) and a light and a dark theme, which Moonframe keeps
+-- (`app.appearance`). Machines lists `app.core.machines`
 -- (`hc machine ls`), read-only.
 
 local settings_page = use "settings-page"
@@ -14,6 +16,7 @@ local switch = use "switch"
 local status_dot = use "status-dot"
 local copy_field = use "copy-field"
 local appearance = use "appearance"
+local theme_cards = use "theme-cards"
 
 type Layout = { tabs: string, headers: string, status: string }
 type State = {
@@ -137,21 +140,27 @@ return mod {
 
 		local sections: { any }
 		if state.page == "look" then
+			local look = app.appearance
 			sections = {
 				{
 					title = "Theme",
 					rows = {
 						{
 							title = "Appearance",
-							description = "Herdr starts as your system is. Light and Dark last until you quit: Moonframe can't keep them yet, nor follow the system after launch.",
-							control = appearance { dark = app.dark },
-						},
-						{
-							title = "Theme",
-							description = "A color theme for the window and its terminals, picked in its own window. One theme serves light and dark: Moonframe keeps a single choice.",
-							control = ui.button { "Choose…", small = true, variant = "outline", command = "show-themes" },
+							description = "Light or dark, or as your system is, switching when it does.",
+							control = appearance { mode = look.mode },
 						},
 					},
+				},
+				{
+					title = "Dark",
+					description = "The theme for the window and its terminals while it is dark.",
+					content = { theme_cards { themes = look.themes, dark = true, selected = look.dark_theme } },
+				},
+				{
+					title = "Light",
+					description = "The theme while it is light.",
+					content = { theme_cards { themes = look.themes, dark = false, selected = look.light_theme } },
 				},
 				{
 					title = "Layout",
