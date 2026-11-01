@@ -28,7 +28,7 @@ type State = {
 	error: string?,
 }
 
-local DEFAULTS: Layout = { tabs = "pills", headers = "split", status = "shown" }
+local DEFAULTS: Layout = { tabs = "pills", headers = "always", status = "shown" }
 local PAGES = {
 	{ id = "look", label = "Look", icon = "palette" },
 	{ id = "machines", label = "Machines", icon = "server" },
@@ -161,9 +161,9 @@ return mod {
 							{ id = "underline", label = "Underline" },
 							{ id = "cards", label = "Cards" },
 						}),
-						choice("Pane headers", "A title row over each pane: its agent, address and buttons.", "headers", state.layout.headers, {
-							{ id = "split", label = "When split" },
+						choice("Pane headers", "A title row over each pane: its program, folder and buttons.", "headers", state.layout.headers, {
 							{ id = "always", label = "Always" },
+							{ id = "split", label = "When split" },
 							{ id = "never", label = "Never" },
 						}),
 						choice("Status line", "herdr-core and agent counts under the window.", "status", state.layout.status, {

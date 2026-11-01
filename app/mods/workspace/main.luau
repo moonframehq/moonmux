@@ -10,9 +10,16 @@
 --
 -- After each change it publishes `topic:herdr/workspace` (the spaces, their
 -- panes, which pane shows where) for the sidebar.
+--
+-- A tab started for an agent (`{ start_agent = "claude" }`, from mods/new-menu)
+-- keeps it in `starts` until `app.core` shows the new pane's shell, then
+-- asks `provider:core` to type it there (`{ start = pane, program }`) and
+-- forgets it: once per pane, and the provider labels the terminal so it is
+-- never typed into twice.
 
 local icon_button = use "icon-button"
 local status_dot = use "status-dot"
+local program_icon = use "program-icon"
 
 type Node = { pane: string?, id: string?, dir: string?, children: { any }? }
 type Tab = { id: string, name: string, layout: Node, active: string }
@@ -26,6 +33,8 @@ type State = {
 	dialog: Dialog?,
 	-- What Settings > Look (mods/settings) chose: { tabs, headers }.
 	layout: any,
+	-- The agent each new pane is to start, by pane, until it is sent.
+	starts: { [string]: string }?,
 }
 
 -- How loud a status is, for a tab or space showing its loudest agent.
@@ -141,6 +150,38 @@ local function base(path: string?): string
 	return string.match(path, "([^/]+)/*$") or path
 end
 
+-- The pending starts whose pane's shell `core` (app.core) now shows, as
+-- sends to `provider:core`; each is forgotten as it is sent, and those of
+-- panes since closed are dropped.
+local function start_sends(state: State, core: any): { any }?
+	local starts = state.starts
+	if not starts or next(starts) == nil then
+		return nil
+	end
+	local live = {}
+	for _, terminal in (core and core.terminals) or {} do
+		if terminal.ours and terminal.pane ~= "" then
+			live[terminal.pane] = true
+		end
+	end
+	local open = {}
+	for _, space in state.spaces do
+		for _, tab in space.tabs do
+			panes_of(tab.layout, open)
+		end
+	end
+	local sends = {}
+	for pane, program in starts do
+		if live[pane] then
+			table.insert(sends, { to = "provider:core", msg = { start = pane, program = program } })
+			starts[pane] = nil
+		elseif not table.find(open, pane) then
+			starts[pane] = nil
+		end
+	end
+	return sends
+end
+
 local function close_sends(panes: { string }): { any }
 	if #panes == 0 then
 		return {}
@@ -230,7 +271,7 @@ end
 
 return mod {
 	title = "Workspace",
-	subscribe = { "herdr/layout" },
+	subscribe = { "herdr/layout", "provider/core" },
 
 	styles = {
 		[".ws-strip"] = { padding = { 0, 10, 0, 12 }, gap = 4 },
@@ -256,8 +297,10 @@ return mod {
 		},
 		[".ws-pane-head"] = { padding = { 3, 6, 3, 10 }, gap = 6, border = "bottom", border_color = "border" },
 		[".ws-pane-head:active"] = { background = "accent/8" },
+		[".ws-pane-name"] = { size = "small", weight = "medium", color = "muted-foreground" },
+		[".ws-pane-name:active"] = { color = "foreground" },
 		[".ws-pane-title"] = { size = "small", color = "muted-foreground" },
-		[".ws-pane-title:active"] = { color = "foreground" },
+		[".ws-pane-icon"] = { color = "muted-foreground" },
 		[".ws-field"] = { gap = 4 },
 		[".ws-dialog"] = { background = "card", radius = 14, padding = 18, gap = 14, shadow = "large" },
 	},
@@ -266,9 +309,10 @@ return mod {
 		if previous and previous.spaces and #previous.spaces > 0 then
 			previous.dialog = nil
 			previous.sidebar = previous.sidebar ~= false
+			previous.starts = previous.starts or {}
 			return previous, { summary(previous) }
 		end
-		local state: State = { spaces = {}, space = "", next = 0, sidebar = true, dialog = nil, layout = nil }
+		local state: State = { spaces = {}, space = "", next = 0, sidebar = true, dialog = nil, layout = nil, starts = {} }
 		local first = new_space(state, "", "~")
 		state.spaces = { first }
 		state.space = first.id
@@ -334,6 +378,21 @@ return mod {
 		if msg.topic == "herdr/layout" then
 			state.layout = msg.value
 			return state
+		elseif msg.topic == "provider/core" then
+			local sends = start_sends(state, msg.value)
+			if not sends then
+				return
+			end
+			return state, sends
+		elseif msg.start_agent and space then
+			-- A tab for the agent, in the current space; its pane starts it
+			-- once its shell is up (see start_sends).
+			local made = new_tab(state, space.cwd)
+			table.insert(space.tabs, made)
+			space.tab = made.id
+			local starts = state.starts or {}
+			starts[made.active] = msg.start_agent
+			state.starts = starts
 		elseif msg.msg == "dialog-name" and state.dialog then
 			state.dialog.name = msg.value
 			return state
@@ -417,7 +476,8 @@ return mod {
 		local tab_class = if layout.tabs == "underline" then "ws-tab-underline"
 			elseif layout.tabs == "cards" then "ws-tab-cards"
 			else "ws-tab"
-		local headers = layout.headers or "split"
+		local headers = layout.headers or "always"
+		local starts = state.starts or {}
 
 		-- What herdr-core says runs in each of our panes, and which panes'
 		-- shells exited.
@@ -432,16 +492,22 @@ return mod {
 			end
 		end
 
-		local function pane_label(pane: string): string
+		-- The key of the program a pane shows (its icon), and its name:
+		-- the agent it is about to start, else what herdr-core says runs.
+		local function program_of(pane: string): (string, string)
 			local terminal = by_pane[pane]
-			if not terminal and ended[pane] then
-				return "The shell exited: click the pane and press Enter"
-			elseif not terminal then
-				return "Starting…"
-			elseif terminal.is_agent then
-				return `{terminal.agent} · {base(terminal.cwd)}`
+			local starting = starts[pane]
+			if starting and not (terminal and terminal.is_agent) then
+				for _, program in (app.core and app.core.programs) or {} do
+					if program.key == starting then
+						return starting, program.name
+					end
+				end
 			end
-			return terminal.cwd
+			if not terminal then
+				return "shell", ""
+			end
+			return terminal.program_key or "", if terminal.program and terminal.program ~= "" then terminal.program else terminal.agent
 		end
 
 		local function loudest(node: Node): string?
@@ -460,9 +526,11 @@ return mod {
 			if each.name ~= "" then
 				return each.name
 			end
-			local terminal = by_pane[each.active] or by_pane[panes_of(each.layout)[1]]
-			if terminal and terminal.is_agent then
-				return terminal.agent
+			local pane = if by_pane[each.active] then each.active else panes_of(each.layout)[1]
+			local terminal = by_pane[pane]
+			local key, name = program_of(pane)
+			if key ~= "shell" and name ~= "" and (starts[pane] or (terminal and terminal.is_agent)) then
+				return name
 			end
 			return base(if terminal then terminal.cwd else (space and space.cwd))
 		end
@@ -472,6 +540,8 @@ return mod {
 		local space_tabs: { Tab } = if space then space.tabs else {}
 		for index, each in space_tabs do
 			local status = loudest(each.layout)
+			local shown = if by_pane[each.active] then each.active else panes_of(each.layout)[1]
+			local terminal = by_pane[shown]
 			table.insert(tabs, ui.row {
 				key = each.id,
 				class = tab_class,
@@ -481,6 +551,7 @@ return mod {
 				context = { rename_tab = each.id },
 				tooltip = if index <= 8 then `⌘{index}` else nil,
 				status and status_dot { status = status, size = "small" },
+				program_icon { program = (program_of(shown)), agent = terminal and terminal.is_agent, dark = app.dark },
 				ui.row { max_width = 180, ui.text { tab_label(each), truncate = true } },
 				icon_button { icon = "close", size = "small", tooltip = "Close tab", msg = { close_tab = each.id } },
 			})
@@ -495,7 +566,8 @@ return mod {
 			hidden and mac and not state.sidebar and not app.window.fullscreen and ui.row { width = 72, shrink = false },
 			not state.sidebar and icon_button { icon = "panel-left", tooltip = "Show sidebar (⌘B)", msg = "toggle-left", to = "shell" },
 			ui.row { gap = "small", align = "center", table.unpack(tabs) },
-			icon_button { icon = "plus", tooltip = "New tab (⌘T)", msg = "new-tab" },
+			-- A shell, an agent or a space (mods/new-menu).
+			ui.mount "new-menu",
 			ui.spacer(),
 			tab and icon_button { icon = "columns-2", tooltip = "Split right (⌘D)", msg = { split = tab.active, dir = "row" } },
 			tab and icon_button { icon = "rows-2", tooltip = "Split down (⇧⌘D)", msg = { split = tab.active, dir = "column" } },
@@ -518,16 +590,22 @@ return mod {
 			local active = tab ~= nil and tab.active == pane
 			local terminal = by_pane[pane]
 			local show_head = headers == "always" or (headers == "split" and many)
+			local key, name = program_of(pane)
+			-- As herdr-app: the program's icon and name, then the live folder.
+			local folder = if terminal then terminal.cwd
+				elseif ended[pane] then "The shell exited: click the pane and press Enter"
+				else "Starting…"
 			local head = if not show_head then nil else ui.row {
 				class = "ws-pane-head",
 				state = if active then "active" else "rest",
 				align = "center",
 				shrink = false,
 				msg = { active = pane },
+				tooltip = terminal and terminal.address,
+				ui.row { class = "ws-pane-icon", shrink = false, program_icon { program = key, agent = terminal and terminal.is_agent, dark = app.dark, size = "small" } },
+				name ~= "" and ui.row { max_width = 260, shrink = false, ui.text { name, class = "ws-pane-name", state = if active then "active" else "rest", truncate = true } },
+				ui.row { grow = true, ui.text { folder, class = "ws-pane-title", truncate = true } },
 				terminal and terminal.status ~= "" and status_dot { status = terminal.status, size = "small" },
-				ui.text { pane_label(pane), class = "ws-pane-title", state = if active then "active" else "rest", truncate = true },
-				ui.spacer(),
-				terminal and ui.text { terminal.address, class = "ws-pane-title", style = { font = "mono" } },
 				icon_button { icon = "columns-2", size = "small", tooltip = "Split right", msg = { split = pane, dir = "row" } },
 				icon_button { icon = "rows-2", size = "small", tooltip = "Split down", msg = { split = pane, dir = "column" } },
 				icon_button { icon = "close", size = "small", tooltip = "Close pane", msg = { close = pane } },

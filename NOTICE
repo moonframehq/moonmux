@@ -6,3 +6,10 @@ from Herdr's logo, https://github.com/herdrdev/herdr/blob/HEAD/assets/logo.svg,
 by the Herdr authors, licensed under the Apache License, Version 2.0:
 https://www.apache.org/licenses/LICENSE-2.0. The path is adapted (scaled,
 placed, recoloured) from herdr-app's icon.
+
+The Pi icon (app/icons/pi-light.svg, app/icons/pi-dark.svg) is herdr-app's
+defaults/icons/pi.svg, https://github.com/herdrdev/herdr-app, licensed under
+the Apache License, Version 2.0, recoloured for light and dark themes.
+herdr-app credits its agent icons to LobeHub icons (MIT License, Copyright
+(c) 2023 LobeHub) and the agents' own marks. Pi is its owner's trademark;
+the licenses grant no trademark rights.
