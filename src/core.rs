@@ -35,7 +35,7 @@
 //! "machines" }` (read `hc machine ls` again at once, rather than at the
 //! next look at the server) and `{ open = "releases" }` (open this app's
 //! releases page in the browser: the only address it opens), answered as
-//! `{ reply = "open", address, ok, error }`.
+//! `{ reply = "open", address, ok, error }`. Each runs at most once a tick.
 
 use {
     moonframe::{Data, Handle, Native},
@@ -100,6 +100,10 @@ pub(crate) struct Core {
     server: Value,
     /// The machines herdr-core reaches over ssh, read as often as `server`.
     machines: Value,
+    /// The tick of the last refresh and of the last page opened: any mod
+    /// may ask for either, so each runs at most once a tick.
+    refreshed: Option<u64>,
+    opened: Option<u64>,
     ticks: u64,
     /// What was last published, so an unchanged tick redraws nothing.
     last: Value,
@@ -115,6 +119,8 @@ impl Core {
             watching: String::new(),
             server: Value::Null,
             machines: Value::Null,
+            refreshed: None,
+            opened: None,
             ticks: 0,
             last: Value::Null,
             writers: Vec::new(),
@@ -319,12 +325,18 @@ impl Native for Core {
     fn receive(&mut self, host: &Handle, from: &str, message: Data) {
         // What touches no terminal, any mod may ask.
         if message.get("refresh").and_then(Data::as_str) == Some("machines") {
-            self.machines = Value::Null;
-            self.publish(host);
+            if once_a_tick(&mut self.refreshed, self.ticks) {
+                self.machines = Value::Null;
+                self.publish(host);
+            }
             return;
         }
         if let Some(page) = message.get("open").and_then(Data::as_str) {
-            let result = open_page(page);
+            let result = if once_a_tick(&mut self.opened, self.ticks) {
+                open_page(page)
+            } else {
+                Err("a page was opened a moment ago".to_owned())
+            };
             if let Err(error) = &result {
                 tracing::warn!("core: open {page}: {error}");
             }
@@ -360,6 +372,16 @@ impl Native for Core {
         }
         self.publish(host);
     }
+}
+
+/// Whether what was last done at tick `last` may run again at `now`, and
+/// if so, marks it done now.
+fn once_a_tick(last: &mut Option<u64>, now: u64) -> bool {
+    if *last == Some(now) {
+        return false;
+    }
+    *last = Some(now);
+    true
 }
 
 /// The answer to an action: `{ reply = <action>, address, ok, error }`.
@@ -736,6 +758,14 @@ mod tests {
         let error = opened("xdg-open", false, Some(3)).unwrap_err();
         assert!(error.contains("exit 3"), "{error}");
         assert!(opened("open", false, None).is_err());
+    }
+
+    #[test]
+    fn requests_any_mod_may_send_run_once_a_tick() {
+        let mut last = None;
+        assert!(once_a_tick(&mut last, 4));
+        assert!(!once_a_tick(&mut last, 4));
+        assert!(once_a_tick(&mut last, 5));
     }
 
     #[test]
