@@ -26,6 +26,10 @@ const READ: &[&str] = &[
     "diff.autoRefreshIndex=false",
     "-c",
     "core.quotepath=false",
+    // No program a repository's own config names runs for a look: no
+    // external diff (textconv is refused per command, `--no-textconv`).
+    "-c",
+    "diff.external=",
 ];
 
 /// What a bounded git read printed.
@@ -37,12 +41,49 @@ pub(crate) struct Output {
 
 /// Runs `git -C root <args>` for a read, keeping at most `limit` bytes of
 /// what it prints: a huge diff or status costs the bound, not the file.
+///
+/// The folder is whatever the focused pane shows, a repository cloned from
+/// anywhere included, so its own config must not run programs: the filter
+/// drivers it names (`filter.<x>.clean`, `smudge`, `process`, which `git
+/// status` runs on changed files) are emptied, which git takes as none.
 pub(crate) fn read(root: &Path, args: &[&str], limit: usize) -> Result<Output, String> {
+    run(root, &neutral_filters(root), args, limit)
+}
+
+/// `-c <name>=` for each filter driver command the repository's config
+/// names. Reading config runs nothing.
+fn neutral_filters(root: &Path) -> Vec<String> {
+    let args = [
+        "config",
+        "-z",
+        "--name-only",
+        "--get-regexp",
+        r"^filter\..*\.(clean|smudge|process)$",
+    ];
+    let Ok(output) = run(root, &[], &args, 64 * 1024) else {
+        // None set (git config exits 1), or no repository.
+        return Vec::new();
+    };
+    output
+        .bytes
+        .split(|byte| *byte == 0)
+        .filter(|name| !name.is_empty())
+        .flat_map(|name| {
+            [
+                "-c".to_owned(),
+                format!("{}=", String::from_utf8_lossy(name).trim()),
+            ]
+        })
+        .collect()
+}
+
+fn run(root: &Path, overrides: &[String], args: &[&str], limit: usize) -> Result<Output, String> {
     let name = args.first().copied().unwrap_or("git");
     let mut child = new_command("git")
         .arg("-C")
         .arg(root)
         .args(READ)
+        .args(overrides)
         .args(args)
         .env("GIT_OPTIONAL_LOCKS", "0")
         .stdin(Stdio::null())
@@ -294,6 +335,79 @@ pub(crate) mod tests {
         let (first, more) = status(bytes, 2);
         assert_eq!(first.len(), 2);
         assert!(more);
+    }
+
+    #[test]
+    fn a_repositorys_filters_and_diff_programs_never_run() {
+        let dir = tempdir();
+        let marker = dir.join("ran");
+        let git = |args: &[&str]| {
+            assert!(
+                new_command("git")
+                    .arg("-C")
+                    .arg(&dir)
+                    .args(args)
+                    .output()
+                    .unwrap()
+                    .status
+                    .success()
+            );
+        };
+        git(&["init", "-q"]);
+        let touch = format!("touch '{}'; cat", marker.display());
+        git(&["config", "filter.evil.clean", &touch]);
+        git(&[
+            "config",
+            "filter.evil.process",
+            &format!("touch '{}'", marker.display()),
+        ]);
+        git(&[
+            "config",
+            "diff.external",
+            &format!("touch '{}'", marker.display()),
+        ]);
+        std::fs::write(dir.join(".gitattributes"), "*.txt filter=evil diff=evil\n").unwrap();
+        git(&["config", "diff.evil.textconv", &touch]);
+        std::fs::write(dir.join("a.txt"), "one\n").unwrap();
+        // Staged by hand, with the filter emptied, so the look below is
+        // the first thing that could run it.
+        git(&[
+            "-c",
+            "filter.evil.clean=",
+            "-c",
+            "filter.evil.process=",
+            "add",
+            "-A",
+        ]);
+        std::fs::write(dir.join("a.txt"), "two\n").unwrap();
+        let _ = std::fs::remove_file(&marker);
+        read(
+            &dir,
+            &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+            1 << 20,
+        )
+        .unwrap();
+        read(
+            &dir,
+            &[
+                "diff",
+                "--cached",
+                "--numstat",
+                "-z",
+                "--no-ext-diff",
+                "--no-textconv",
+            ],
+            1 << 20,
+        )
+        .unwrap();
+        read(
+            &dir,
+            &["diff", "--no-ext-diff", "--no-textconv", "--", "a.txt"],
+            1 << 20,
+        )
+        .unwrap();
+        assert!(!marker.exists(), "a repository's own program ran");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

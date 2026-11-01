@@ -124,7 +124,15 @@ impl Changes {
         let base = base(&root);
         let numstat = git::read(
             &root,
-            &["diff", &base, "--numstat", "-z", "--no-renames"],
+            &[
+                "diff",
+                &base,
+                "--numstat",
+                "-z",
+                "--no-renames",
+                "--no-ext-diff",
+                "--no-textconv",
+            ],
             STATUS_BYTES,
         )
         .map(|output| output.bytes)
