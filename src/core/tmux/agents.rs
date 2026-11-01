@@ -30,10 +30,10 @@ const WORKING: &[&str] = &[
     // keep-sorted start
     "ctrl+c to interrupt",
     "ctrl-c to interrupt",
+    "esc interrupt",
     "esc to cancel",
     "esc to interrupt",
     "esc to stop",
-    "esc interrupt",
     // keep-sorted end
 ];
 
