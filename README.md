@@ -164,8 +164,10 @@ pane's folder:
   add one (`hc machine add <host>`).
 - **Alerts**: sounds and notifications, for your agents and optionally the
   others.
-- **Updates**: Moonmux's and herdr-core's versions, and the releases page
-  (the app does not look for updates itself).
+- **Updates**: Moonmux's and herdr-core's versions, Check Now, and the
+  releases page. Moonmux asks GitHub for its newest release once a day and
+  offers it; on macOS it installs it and relaunches (also Moonmux > Check
+  for Updates…).
 - **Privacy**: no telemetry, no crash reports, nothing from your terminals.
 
 The **command palette** (⌘⇧P) finds any command the menus offer, with its
@@ -235,8 +237,9 @@ others publish install from git with `moonmux mod install <owner/repo>`. See
   and kept inside the folder.
 - **No telemetry.** Moonmux talks to herdr-core and tmux on this computer;
   herdr-core reaches your machines over ssh; Send feedback goes to the coding
-  agent you pick, only when you send it. The only page the app opens is the
-  releases page, when you ask for it.
+  agent you pick, only when you send it. Once a day it asks GitHub's API
+  for its newest release, and downloads one only when you choose to install
+  it. The only page the app opens is the releases page, when you ask for it.
 
 ## How it is built
 
