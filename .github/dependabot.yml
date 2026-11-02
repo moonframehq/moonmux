@@ -29,6 +29,3 @@ updates:
     groups:
       cargo-minor-patch:
         update-types: [minor, patch]
-    ignore:
-      # Moonframe is pinned by rev; moving it is a manual, tested change.
-      - dependency-name: moonframe
