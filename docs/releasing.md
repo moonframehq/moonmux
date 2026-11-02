@@ -27,7 +27,7 @@ The workflow then:
 1. runs zizmor on itself and checks the requested commit is `main`'s HEAD;
 2. builds every package (`package.yml`) and the CycloneDX SBOMs, while it
    waits for CI to pass on that same commit; nothing below runs until it has;
-3. signs Herdr.app with the Developer ID, notarizes and staples it, and builds
+3. signs Moonmux.app with the Developer ID, notarizes and staples it, and builds
    the disk image around it, signed, notarized and stapled too; and signs
    the Windows executable with Authenticode (each when its signing is set
    up, see below);
@@ -48,10 +48,10 @@ an approval.
 
 | File | For |
 | --- | --- |
-| `herdr-moonframe-<v>-universal-apple-darwin.dmg` | macOS 13+, Apple Silicon and Intel: drag Herdr onto the Applications shortcut |
-| `herdr-moonframe-<v>-{x86_64,aarch64}-unknown-linux-gnu.tar.gz` | Linux: run `herdr-moonframe` from the unpacked folder |
-| `herdr-moonframe-<v>-x86_64-pc-windows-msvc.zip` | Windows: run `herdr-moonframe.exe` from the unpacked folder |
-| `herdr-moonframe-<v>.cdx.json` | the SBOM of the executable, Moonframe included |
+| `moonmux-<v>-universal-apple-darwin.dmg` | macOS 13+, Apple Silicon and Intel: drag Moonmux onto the Applications shortcut |
+| `moonmux-<v>-{x86_64,aarch64}-unknown-linux-gnu.tar.gz` | Linux: run `moonmux` from the unpacked folder |
+| `moonmux-<v>-x86_64-pc-windows-msvc.zip` | Windows: run `moonmux.exe` from the unpacked folder |
+| `moonmux-<v>.cdx.json` | the SBOM of the executable, Moonframe included |
 | `SHA256SUMS` | the checksum of every file above |
 | `*.sigstore.json` | the Sigstore bundle of each file |
 
@@ -64,10 +64,10 @@ app only runs native providers.
 
 ```sh
 sha256sum --check --ignore-missing SHA256SUMS
-gh attestation verify herdr-moonframe-<v>-universal-apple-darwin.dmg --repo penso/herdr-moonframe
-cosign verify-blob herdr-moonframe-<v>-universal-apple-darwin.dmg \
-  --bundle herdr-moonframe-<v>-universal-apple-darwin.dmg.sigstore.json \
-  --certificate-identity https://github.com/penso/herdr-moonframe/.github/workflows/release.yml@refs/heads/main \
+gh attestation verify moonmux-<v>-universal-apple-darwin.dmg --repo penso/moonmux
+cosign verify-blob moonmux-<v>-universal-apple-darwin.dmg \
+  --bundle moonmux-<v>-universal-apple-darwin.dmg.sigstore.json \
+  --certificate-identity https://github.com/penso/moonmux/.github/workflows/release.yml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -96,15 +96,17 @@ to executable memory, which the hardened runtime otherwise refuses.
 
 ## Setting up Windows signing
 
-Without it, the zip's `herdr-moonframe.exe` is unsigned and SmartScreen warns on
+Without it, the zip's `moonmux.exe` is unsigned and SmartScreen warns on
 first launch. It is signed with Azure Artifact Signing, under the publisher
 `Fabien Penso`, by the account and certificate profile every one of the
 author's apps shares. There is no key, certificate or secret to store: the
 `sign-windows` job exchanges the `release` environment's GitHub OIDC token
 for an Azure token as the `moonframe-signing` app registration, which needs
-a federated credential trusting `repo:penso/herdr-moonframe:environment:release`
+a federated credential trusting `repo:penso/moonmux:environment:release`
 (beside Moonframe's own) and holds the *Artifact Signing Certificate Profile Signer* role on
-that profile. Add to the `release` environment, all as variables:
+that profile. The credential names the repository: it was
+`repo:penso/herdr-moonframe:...` before the rename to Moonmux, and a
+renamed repository needs its own. Add to the `release` environment, all as variables:
 
 | Name | Value |
 | --- | --- |

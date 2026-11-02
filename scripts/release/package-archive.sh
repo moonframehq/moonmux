@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Packages a Linux or Windows release in OUT_DIR: BINARY (which carries its
 # app and Moonframe's toolbox inside it) with the license and readme, in
-# herdr-moonframe-VERSION-TARGET.tar.gz (Linux) or .zip (Windows).
+# moonmux-VERSION-TARGET.tar.gz (Linux) or .zip (Windows).
 set -euo pipefail
 [[ $# == 3 ]] || { echo "usage: package-archive.sh TARGET BINARY OUT_DIR" >&2; exit 2; }
 target=$1
 binary=$2
 out=$3
 version=$(scripts/release/version.sh)
-name="herdr-moonframe-$version-$target"
+name="moonmux-$version-$target"
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 

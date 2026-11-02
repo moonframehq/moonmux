@@ -26,7 +26,7 @@ const SERVER_EVERY: u64 = 30;
 const PEEK_LINES: &str = "60";
 /// The label marking a pane's terminal as given its agent: `start` types
 /// into a terminal only while it has none.
-const START_LABEL: &str = "herdr-moonframe-start";
+const START_LABEL: &str = "moonmux-start";
 
 /// Programs herdr-core names that are coding agents, as it reports them.
 const AGENTS: &[&str] = &[
@@ -431,7 +431,7 @@ mod tests {
 
     #[test]
     fn only_this_apps_terminals_are_ours() {
-        let ours = json!({ "labels": { "moonframe-app": "herdr-moonframe", "moonframe": "pane#p3/term" } });
+        let ours = json!({ "labels": { "moonframe-app": "moonmux", "moonframe": "pane#p3/term" } });
         assert_eq!(
             labels_from(&ours),
             Labels {
@@ -441,13 +441,13 @@ mod tests {
             }
         );
         let started = json!({ "labels": {
-            "moonframe-app": "herdr-moonframe",
+            "moonframe-app": "moonmux",
             "moonframe": "pane#p4/term",
-            "herdr-moonframe-start": "claude",
+            "moonmux-start": "claude",
         } });
         assert_eq!(labels_from(&started).started, "claude");
         // Another app's label never counts as started here.
-        let theirs_started = json!({ "labels": { "herdr-moonframe-start": "claude" } });
+        let theirs_started = json!({ "labels": { "moonmux-start": "claude" } });
         assert_eq!(labels_from(&theirs_started), Labels::default());
         let theirs = json!({ "labels": { "moonframe-app": "moonframe-sessions", "moonframe": "pane#p3/term" } });
         assert_eq!(labels_from(&theirs), Labels::default());

@@ -17,8 +17,12 @@ Engineering guidance for agents working in this repository. Read this alongside
 
 ## Architecture
 
-herdr-moonframe is Herdr (a desktop app for terminals and coding agents, like
-herdr-app) built on the Moonframe library. A backend owns every terminal
+Moonmux is a desktop app for terminals and coding agents (like herdr-app),
+built on the Moonframe library. Its name (`NAME` in `src/main.rs`) is the
+label on its herdr-core terminals, its tmux server (`tmux -L moonmux`), its
+config and cache folders and its saved workspace: changing it, or the app
+id (`dev.penso.moonmux`), orphans users' running panes and loses their
+spaces, so a rename needs a migration. A backend owns every terminal
 process, herdr-core (`hc`) or tmux; this app arranges them and shows the
 agents. Closing the window must leave the backends and their terminals
 running.
@@ -30,17 +34,17 @@ tests with either alone and with both; `just features` and CI check that.
 
 | Location | Responsibility |
 | --- | --- |
-| `src/main.rs` | `Moonframe::new("herdr-moonframe")`: `app/` read live from the checkout, else compiled in (`AppFiles`) |
+| `src/main.rs` | `Moonframe::new("moonmux")`: `app/` read live from the checkout, else compiled in (`AppFiles`) |
 | `src/core/mod.rs` | The `core` native provider (`app.core`): each second, the terminals of every backend built in and installed, behind the `Backend` trait; which backend Auto picks; routing a peek and actions (send, keys, interrupt, close_panes, start) to the backend whose address they name; opening the releases page; `new_command` for every child process |
 | `src/core/herdr.rs` | The herdr-core backend (`herdr-core` feature): `hc ls`, labels via `hc get`, a peek (`hc read`), machines (`hc machine ls`), `hc kill` and `hc label` |
-| `src/core/tmux/` | The tmux backend (`tmux` feature): panes of the app's own server (`tmux -L herdr-moonframe`) and the user's other servers (`server.rs`), agents found under each pane's shell and read off its screen (`agents.rs`) |
+| `src/core/tmux/` | The tmux backend (`tmux` feature): panes of the app's own server (`tmux -L moonmux`) and the user's other servers (`server.rs`), agents found under each pane's shell and read off its screen (`agents.rs`) |
 | `app/main.luau` | The shell: sidebar, workspace card, status line, peek sheet; menus and their shortcuts |
-| `app/mods/workspace` | Spaces, their tabs, and each tab's tree of split panes, all in its state, with the backend each pane runs on; the tab strip is the title bar. Publishes `topic:herdr/workspace` |
+| `app/mods/workspace` | Spaces, their tabs, and each tab's tree of split panes, all in its state, with the backend each pane runs on; the tab strip is the title bar. Publishes `topic:moonmux/workspace` |
 | `app/mods/pane` | One instance per pane (`pane#p3`), each owning one terminal (`pane#p3/term`) on the backend the workspace gives it |
 | `app/mods/sidebar` | Spaces, then agents in our panes, then agents elsewhere |
 | `app/mods/peek`, `app/mods/statusbar` | The peek sheet and the status line |
-| `app/mods/settings` | The Settings dialog (⌘,): Look (appearance, theme, and the layout choices it publishes on `topic:herdr/layout`), Terminals (the backend new panes run on, on `topic:herdr/backend`), Machines, Alerts, Updates, Privacy |
-| `app/mods/palette`, `app/mods/welcome` | The command palette (⌘⇧P), fed the shell's menus; the first-launch Welcome (Help > Welcome to Herdr) |
+| `app/mods/settings` | The Settings dialog (⌘,): Look (appearance, theme, and the layout choices it publishes on `topic:moonmux/layout`), Terminals (the backend new panes run on, on `topic:moonmux/backend`), Machines, Alerts, Updates, Privacy |
+| `app/mods/palette`, `app/mods/welcome` | The command palette (⌘⇧P), fed the shell's menus; the first-launch Welcome (Help > Welcome to Moonmux) |
 | `app/components` | The app's own components (`appearance`, shared by Settings and Welcome) |
 | `app/style.luau` | The look, merged over Moonframe's stylesheet |
 | `scripts/release`, `.github/workflows` | Packaging, signing and releasing (`docs/releasing.md`) |
@@ -49,10 +53,10 @@ tests with either alone and with both; `just features` and CI check that.
   reloads live. Add Rust only for what Luau can't do (talking to herdr-core
   or tmux).
 - **Which pane runs which agent:** Moonframe labels each terminal it starts in
-  herdr-core with `moonframe-app=herdr-moonframe` and `moonframe=<owner>/<id>`,
+  herdr-core with `moonframe-app=moonmux` and `moonframe=<owner>/<id>`,
   and names each tmux session after the key (`pane#p3/term` is
   `pane_p3+term`, with a `~hash` on newer Moonframes) on the server
-  `tmux -L herdr-moonframe`. Because every pane is its own `pane` instance,
+  `tmux -L moonmux`. Because every pane is its own `pane` instance,
   the owner is `pane#<id>`, and each backend's `pane_of` reads the pane id
   back. Keep the mod name `pane`, its terminal id `term`, `PANE_MOD` and
   `PANE_SESSION_PREFIX` in step.

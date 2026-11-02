@@ -42,7 +42,7 @@ return component {
 			ui.row {
 				class = "appearance-option appearance-off",
 				align = "center",
-				tooltip = "Moonframe follows the system only as Herdr starts",
+				tooltip = "Moonframe follows the system only as Moonmux starts",
 				ui.icon { name = "monitor", size = "small" },
 				ui.text { "System" },
 			},

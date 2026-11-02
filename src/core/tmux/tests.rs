@@ -41,7 +41,7 @@ fn entries_and_counts() {
     };
     let entries = [
         entry(
-            &pane("herdr-moonframe", "%1", "zsh"),
+            &pane("moonmux", "%1", "zsh"),
             None,
             None,
             true,
@@ -49,7 +49,7 @@ fn entries_and_counts() {
             "/home/u",
         ),
         entry(
-            &pane("herdr-moonframe", "%2", "node"),
+            &pane("moonmux", "%2", "node"),
             Some("codex"),
             Some(working),
             true,
@@ -93,32 +93,15 @@ fn entries_and_counts() {
 fn ours_sort_first_then_by_pane_number() {
     let mut entries = [
         entry(&pane("default", "%3", "zsh"), None, None, false, "", ""),
-        entry(
-            &pane("herdr-moonframe", "%10", "zsh"),
-            None,
-            None,
-            true,
-            "p2",
-            "",
-        ),
-        entry(
-            &pane("herdr-moonframe", "%9", "zsh"),
-            None,
-            None,
-            true,
-            "p1",
-            "",
-        ),
+        entry(&pane("moonmux", "%10", "zsh"), None, None, true, "p2", ""),
+        entry(&pane("moonmux", "%9", "zsh"), None, None, true, "p1", ""),
     ];
     entries.sort_by_key(sort_key);
     let order: Vec<&str> = entries
         .iter()
         .map(|entry| entry["address"].as_str().unwrap())
         .collect();
-    assert_eq!(
-        order,
-        ["herdr-moonframe:%9", "herdr-moonframe:%10", "default:%3"]
-    );
+    assert_eq!(order, ["moonmux:%9", "moonmux:%10", "default:%3"]);
 }
 
 #[test]
@@ -192,7 +175,7 @@ fn panes_on_a_real_server_are_found_typed_into_and_closed() {
     };
     let server = Server {
         tmux: program.clone(),
-        name: format!("herdr-moonframe-test-{}", std::process::id()),
+        name: format!("moonmux-test-{}", std::process::id()),
     };
     let start = |session: &str| {
         program

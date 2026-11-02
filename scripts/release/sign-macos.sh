@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Signs the packaged Herdr.app (APP_TAR, from package-macos.sh) with a
+# Signs the packaged Moonmux.app (APP_TAR, from package-macos.sh) with a
 # Developer ID under the hardened runtime, notarizes and staples it, then
 # builds, signs, notarizes and staples the disk image in OUT_DIR. It never
 # launches the app. Credentials come from the environment (the release
@@ -19,7 +19,7 @@ done
 version=$(scripts/release/version.sh)
 entitlements=$(pwd)/assets/macos/herdr.entitlements
 mkdir -p "$2"
-dmg=$(cd "$2" && pwd)/herdr-moonframe-$version-universal-apple-darwin.dmg
+dmg=$(cd "$2" && pwd)/moonmux-$version-universal-apple-darwin.dmg
 [[ ! -e $dmg ]] || { echo "refusing to overwrite $dmg" >&2; exit 1; }
 
 umask 077
@@ -56,13 +56,13 @@ rm "$tmp/certificate.p12"
 
 mkdir "$tmp/bundle"
 tar -C "$tmp/bundle" -xf "$1"
-app=$tmp/bundle/Herdr.app
+app=$tmp/bundle/Moonmux.app
 [[ $(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist") == "$version" ]] \
     || { echo "app version does not match Cargo.toml" >&2; exit 1; }
 sign() {
     codesign --force --sign "$MACOS_SIGNING_IDENTITY" --keychain "$keychain" --timestamp "$@"
 }
-sign --options runtime --entitlements "$entitlements" "$app/Contents/MacOS/herdr-moonframe"
+sign --options runtime --entitlements "$entitlements" "$app/Contents/MacOS/moonmux"
 sign --options runtime --entitlements "$entitlements" "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 
@@ -83,16 +83,16 @@ notarize() {
     jq -e '.status == "Accepted"' "$tmp/notary.json" >/dev/null \
         || { cat "$tmp/notary.json" >&2; echo "notarization was not accepted" >&2; exit 1; }
 }
-ditto -c -k --keepParent "$app" "$tmp/Herdr.zip"
-notarize "$tmp/Herdr.zip"
+ditto -c -k --keepParent "$app" "$tmp/Moonmux.zip"
+notarize "$tmp/Moonmux.zip"
 apple stapler staple "$app"
 spctl --assess --type execute --verbose=2 "$app"
 
-scripts/release/make-dmg.sh "$app" "$tmp/Herdr.dmg" >/dev/null
-sign "$tmp/Herdr.dmg"
-notarize "$tmp/Herdr.dmg"
-apple stapler staple "$tmp/Herdr.dmg"
-spctl --assess --type open --context context:primary-signature --verbose=2 "$tmp/Herdr.dmg"
-chmod 644 "$tmp/Herdr.dmg"
-mv "$tmp/Herdr.dmg" "$dmg"
+scripts/release/make-dmg.sh "$app" "$tmp/Moonmux.dmg" >/dev/null
+sign "$tmp/Moonmux.dmg"
+notarize "$tmp/Moonmux.dmg"
+apple stapler staple "$tmp/Moonmux.dmg"
+spctl --assess --type open --context context:primary-signature --verbose=2 "$tmp/Moonmux.dmg"
+chmod 644 "$tmp/Moonmux.dmg"
+mv "$tmp/Moonmux.dmg" "$dmg"
 echo "$dmg"

@@ -294,10 +294,7 @@ mod tests {
     #[test]
     fn addresses_are_checked() {
         assert_eq!(split_address("default:%3"), Some(("default", "%3")));
-        assert_eq!(
-            split_address("herdr-moonframe:%12"),
-            Some(("herdr-moonframe", "%12"))
-        );
+        assert_eq!(split_address("moonmux:%12"), Some(("moonmux", "%12")));
         assert_eq!(split_address("default:3"), None);
         assert_eq!(split_address("../x:%3"), None);
         assert_eq!(split_address("a b:%3"), None);
@@ -307,9 +304,7 @@ mod tests {
 
     #[test]
     fn missing_servers_are_not_errors() {
-        assert!(no_server(
-            "no server running on /tmp/tmux-501/herdr-moonframe"
-        ));
+        assert!(no_server("no server running on /tmp/tmux-501/moonmux"));
         assert!(no_server(
             "error connecting to /tmp/tmux-501/x (No such file or directory)"
         ));
@@ -320,14 +315,13 @@ mod tests {
     #[test]
     fn only_sockets_count_as_servers() {
         use std::os::unix::net::UnixListener;
-        let dir =
-            std::env::temp_dir().join(format!("herdr-moonframe-sockets-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("moonmux-sockets-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let _a = UnixListener::bind(dir.join("work")).unwrap();
         let _b = UnixListener::bind(dir.join(DEFAULT)).unwrap();
-        let _c = UnixListener::bind(dir.join("herdr-moonframe")).unwrap();
+        let _c = UnixListener::bind(dir.join("moonmux")).unwrap();
         std::fs::write(dir.join("notes"), "").unwrap();
-        let found = other_servers(&dir, "herdr-moonframe");
+        let found = other_servers(&dir, "moonmux");
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(found, vec![DEFAULT.to_owned(), "work".to_owned()]);
         assert!(other_servers(&dir.join("missing"), "x").is_empty());

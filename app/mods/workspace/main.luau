@@ -10,7 +10,7 @@
 --
 -- Which backend a pane runs on is chosen when it opens and kept for its
 -- life, across launches, in `backends`: the choice in Settings > Terminals
--- (`topic:herdr/backend`), Auto meaning what `app.core.backends.auto` says
+-- (`topic:moonmux/backend`), Auto meaning what `app.core.backends.auto` says
 -- (herdr-core when installed, else tmux). Changing the choice applies to
 -- panes opened after it; open panes keep theirs, as Moonframe keeps a
 -- terminal on the backend it opened on. Once `app.core` lists a pane's
@@ -18,7 +18,7 @@
 -- another backend when the one asked for is missing), so the next launch
 -- reattaches it there rather than starting a second shell elsewhere.
 --
--- After each change it publishes `topic:herdr/workspace` (the spaces, their
+-- After each change it publishes `topic:moonmux/workspace` (the spaces, their
 -- panes, which pane shows where) for the sidebar.
 --
 -- A tab started for an agent (`{ start_agent = "claude" }`, from mods/new-menu)
@@ -246,7 +246,7 @@ local function summary(state: State)
 		end
 		table.insert(spaces, { id = space.id, name = space.name, cwd = space.cwd, tabs = #space.tabs, panes = panes })
 	end
-	return { to = "topic:herdr/workspace", msg = { space = state.space, spaces = spaces, visible = visible, where = where } }
+	return { to = "topic:moonmux/workspace", msg = { space = state.space, spaces = spaces, visible = visible, where = where } }
 end
 
 -- Follows `core` (app.core) for where our panes' shells run: a pane whose
@@ -359,7 +359,7 @@ end
 
 return mod {
 	title = "Workspace",
-	subscribe = { "herdr/layout", "herdr/backend", "provider/core" },
+	subscribe = { "moonmux/layout", "moonmux/backend", "provider/core" },
 
 	styles = {
 		[".ws-strip"] = { padding = { 0, 10, 0, 12 }, gap = 4 },
@@ -465,10 +465,10 @@ return mod {
 		if type(msg) ~= "table" then
 			return
 		end
-		if msg.topic == "herdr/layout" then
+		if msg.topic == "moonmux/layout" then
 			state.layout = msg.value
 			return state
-		elseif msg.topic == "herdr/backend" then
+		elseif msg.topic == "moonmux/backend" then
 			state.backend = (msg.value and msg.value.choice) or "auto"
 			return state
 		elseif msg.topic == "provider/core" then

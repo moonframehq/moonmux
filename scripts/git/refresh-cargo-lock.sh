@@ -5,7 +5,7 @@
 # --stop: the rebuilt lockfile is staged and the merge waits for `git commit`.
 set -euo pipefail
 
-marker=$(git rev-parse --git-path herdr-moonframe-cargo-lock-stale)
+marker=$(git rev-parse --git-path moonmux-cargo-lock-stale)
 [[ -e "$marker" ]] || exit 0
 
 # Only the merge that left the marker may rebuild the lockfile (MERGE_HEAD, or
