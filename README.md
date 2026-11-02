@@ -74,7 +74,7 @@ macOS (Apple Silicon and Intel), Linux (x86_64, ARM64) and Windows (x86_64).
       <sub><b>Changes.</b> What changed in the focused pane's repository, with each file's diff a click away, and a commit box. <b>Files</b> browses the same folder with read-only previews.</sub>
     </td>
     <td width="50%" valign="top">
-      <img src="docs/screenshots/settings.png" alt="The Settings dialog on Look: Appearance System, Light or Dark, and rows of theme cards for dark and for light, each with its colours">
+      <img src="docs/screenshots/settings.png" alt="The Settings window on Look: Appearance System, Light or Dark, and rows of theme cards for dark and for light, each with its colours">
       <br>
       <sub><b>Settings.</b> Look, Terminals, Machines, Alerts, Updates and Privacy. <b>⌘⇧P</b> finds any command.</sub>
     </td>

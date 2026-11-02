@@ -2,9 +2,10 @@
 -- elsewhere) on the left, the chosen space's tabs and split panes in a card
 -- on the right (with the Files or Changes panel beside its card, under its
 -- tab strip, when shown: the shell picks which, the workspace draws it), a status
--- line under all, and the peek sheet over them; over all of them Settings,
--- the command palette and the Welcome; and the alerts, which draw nothing
--- but need to know whether the window is active.
+-- line under all, and the peek sheet over them; over all of them the
+-- command palette and the Welcome; and the alerts, which draw nothing but
+-- need to know whether the window is active. Settings is a window of its
+-- own (mods/settings opens it), so it is not mounted here.
 -- The title bar is hidden: its traffic lights sit over the sidebar, or
 -- over the tab strip while the sidebar is folded.
 
@@ -132,7 +133,6 @@ return mod {
 			body,
 			state.status and ui.mount "statusbar",
 			ui.mount "peek",
-			ui.mount "settings",
 			ui.mount "palette",
 			ui.mount "welcome",
 			ui.mount { "alerts", id = "main", props = { active = app.window.active } },
