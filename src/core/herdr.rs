@@ -11,11 +11,14 @@
 //! `hc ls`'s `cwd` is the folder a terminal started in. For this app's own
 //! panes, whose folder the Files and Changes panels follow, each tick also
 //! asks `hc get` where its foreground program is now (`foreground.cwd`).
+//!
+//! Every `hc` call is bounded by [`DEADLINE`]: one that hangs fails instead
+//! of holding up the tick, and with it every backend's terminals.
 
 use {
-    super::{Backend, Listing, new_command, tilde},
+    super::{Backend, Listing, new_command, output_within, tilde},
     serde_json::{Value, json},
-    std::{collections::HashMap, path::PathBuf},
+    std::{collections::HashMap, io, path::PathBuf, time::Duration},
 };
 
 /// The label herdr-core keeps the owning app's name in.
@@ -24,6 +27,8 @@ const APP_LABEL: &str = "moonframe-app";
 const KEY_LABEL: &str = "moonframe";
 /// The mod whose instances are the app's panes; `pane#<id>` owns each.
 const PANE_MOD: &str = "pane#";
+/// How long one `hc` call may run before it is stopped and fails.
+const DEADLINE: Duration = Duration::from_secs(5);
 /// Ticks between looks at the server itself (its name and version).
 const SERVER_EVERY: u64 = 30;
 /// Lines of history above the screen a peek shows.
@@ -82,6 +87,8 @@ pub(crate) struct HerdrCore {
     stamps: HashMap<String, Stamp>,
     /// The server's name and version, looked at now and then.
     server: Value,
+    /// How long one `hc` call may run: [`DEADLINE`], shorter in tests.
+    deadline: Duration,
 }
 
 impl HerdrCore {
@@ -91,24 +98,32 @@ impl HerdrCore {
             labels: HashMap::new(),
             stamps: HashMap::new(),
             server: Value::Null,
+            deadline: DEADLINE,
         }
     }
 
     /// Runs `hc args...` and returns what it printed, or why it failed.
+    /// One that runs longer than `self.deadline` is stopped and fails.
     fn hc(&self, args: &[&str]) -> Result<String, String> {
         let Some(hc) = &self.hc else {
             return Err("herdr-core is not installed: `hc` was not found".to_owned());
         };
-        let output = new_command(hc)
-            .args(args)
-            .output()
-            .map_err(|error| format!("hc {}: {error}", args.first().unwrap_or(&"")))?;
+        let mut command = new_command(hc);
+        command.args(args);
+        let verb = args.first().unwrap_or(&"");
+        let output = output_within(&mut command, b"", self.deadline).map_err(|error| {
+            if error.kind() == io::ErrorKind::TimedOut {
+                format!("hc {verb} did not answer")
+            } else {
+                format!("hc {verb}: {error}")
+            }
+        })?;
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).into_owned())
         } else {
             let said = String::from_utf8_lossy(&output.stderr).trim().to_owned();
             Err(if said.is_empty() {
-                format!("hc {} failed", args.first().unwrap_or(&""))
+                format!("hc {verb} failed")
             } else {
                 said
             })
@@ -443,6 +458,30 @@ mod tests {
             hc: None,
             ..HerdrCore::new()
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_hc_that_hangs_fails_in_time() {
+        use std::{os::unix::fs::PermissionsExt as _, time::Instant};
+        let dir = std::env::temp_dir().join(format!("moonmux-hc-hangs-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let hc = dir.join("hc");
+        std::fs::write(&hc, "#!/bin/sh\nexec sleep 5\n").unwrap();
+        std::fs::set_permissions(&hc, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut core = HerdrCore {
+            hc: Some(hc),
+            deadline: Duration::from_millis(100),
+            ..HerdrCore::new()
+        };
+        let started = Instant::now();
+        assert_eq!(core.live_cwd("t1"), None);
+        assert_eq!(
+            core.list(1, "/home").err(),
+            Some("hc ls did not answer".to_owned())
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
