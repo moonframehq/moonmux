@@ -14,7 +14,7 @@ body:
     attributes:
       label: Preflight checklist
       options:
-        - label: I have searched [existing issues](https://github.com/penso/moonmux/issues) for duplicates.
+        - label: I have searched [existing issues](https://github.com/moonframehq/moonmux/issues) for duplicates.
           required: true
   - type: textarea
     id: actual

@@ -64,10 +64,10 @@ app only runs native providers.
 
 ```sh
 sha256sum --check --ignore-missing SHA256SUMS
-gh attestation verify moonmux-<v>-universal-apple-darwin.dmg --repo penso/moonmux
+gh attestation verify moonmux-<v>-universal-apple-darwin.dmg --repo moonframehq/moonmux
 cosign verify-blob moonmux-<v>-universal-apple-darwin.dmg \
   --bundle moonmux-<v>-universal-apple-darwin.dmg.sigstore.json \
-  --certificate-identity https://github.com/penso/moonmux/.github/workflows/release.yml@refs/heads/main \
+  --certificate-identity https://github.com/moonframehq/moonmux/.github/workflows/release.yml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -102,11 +102,12 @@ first launch. It is signed with Azure Artifact Signing, under the publisher
 author's apps shares. There is no key, certificate or secret to store: the
 `sign-windows` job exchanges the `release` environment's GitHub OIDC token
 for an Azure token as the `moonframe-signing` app registration, which needs
-a federated credential trusting `repo:penso/moonmux:environment:release`
+a federated credential trusting `repo:moonframehq/moonmux:environment:release`
 (beside Moonframe's own) and holds the *Artifact Signing Certificate Profile Signer* role on
 that profile. The credential names the repository: it was
-`repo:penso/herdr-moonframe:...` before the rename to Moonmux, and a
-renamed repository needs its own. Add to the `release` environment, all as variables:
+`repo:penso/herdr-moonframe:...` before the rename to Moonmux, and
+`repo:penso/moonmux:...` before the move to the moonframehq organization; a
+renamed or moved repository needs its own. Add to the `release` environment, all as variables:
 
 | Name | Value |
 | --- | --- |

@@ -4,7 +4,7 @@ edition      = "2024"
 license      = "MIT"
 name         = "moonmux"
 publish      = false
-repository   = "https://github.com/penso/moonmux"
+repository   = "https://github.com/moonframehq/moonmux"
 rust-version = "1.99"
 version      = "0.1.0"
 

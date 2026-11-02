@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/penso/moonmux/releases"><b>Download</b></a> ·
+  <a href="https://github.com/moonframehq/moonmux/releases"><b>Download</b></a> ·
   <a href="#install"><b>Install</b></a> ·
   <a href="#gallery">Gallery</a> ·
   <a href="#spaces-tabs-and-panes">Workspace</a> ·
@@ -244,7 +244,7 @@ Contributors and agents: read [AGENTS.md](AGENTS.md).
 
 ## Install
 
-Download the latest [release](https://github.com/penso/moonmux/releases):
+Download the latest [release](https://github.com/moonframehq/moonmux/releases):
 the macOS disk image (universal, signed and notarized), or the Linux or
 Windows archive. Moonmux needs [herdr-core](https://github.com/herdrdev/herdr-core)
 (`hc`; see its README for how) or tmux.

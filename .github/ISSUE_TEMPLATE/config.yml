@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://github.com/penso/moonmux#readme
+    url: https://github.com/moonframehq/moonmux#readme
     about: Read the setup guide, keys, and current limitations
   - name: herdr-core issue
     url: https://github.com/herdrdev/herdr-core/issues
     about: Bugs in herdr-core (`hc`), its terminals or agent statuses belong upstream
   - name: Security vulnerability
-    url: https://github.com/penso/moonmux/security/advisories/new
+    url: https://github.com/moonframehq/moonmux/security/advisories/new
     about: Report privately instead of opening a public issue

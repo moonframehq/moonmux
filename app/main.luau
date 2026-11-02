@@ -76,7 +76,7 @@ return mod {
 	about = {
 		version = "0.1",
 		description = "Terminals and coding agents in spaces, kept running by herdr-core or tmux.",
-		website = "https://github.com/penso/moonmux",
+		website = "https://github.com/moonframehq/moonmux",
 		copyright = "MIT licensed",
 	},
 
