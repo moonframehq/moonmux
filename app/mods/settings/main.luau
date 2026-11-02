@@ -126,6 +126,10 @@ return mod {
 			-- Send feedback is the title bar's `?` (Moonframe's feedback mod).
 			state.open = false
 			return state, { { to = "feedback", msg = "open" } }
+		elseif msg == "check-updates" then
+			-- Moonframe's updater: it says whether a newer release is out.
+			state.open = false
+			return state, { { to = "app:command", msg = "check-for-updates" } }
 		elseif msg == "releases" then
 			state.error = nil
 			return state, { { to = "provider:core", msg = { open = "releases" } } }
@@ -363,7 +367,12 @@ return mod {
 					rows = {
 						{
 							title = `Moonmux {(core and core.app_version) or ""}`,
-							description = "New versions are on the releases page. Moonmux doesn't look for them itself.",
+							description = "Moonmux looks for a new version once a day and offers it when there is one.",
+							control = ui.button { "Check Now", icon = "refresh-cw", small = true, variant = "outline", msg = "check-updates" },
+						},
+						{
+							title = "Release notes",
+							description = "What changed in each version, and every download.",
 							control = ui.button { "Releases", icon = "external-link", small = true, variant = "outline", msg = "releases" },
 						},
 					},
@@ -389,7 +398,7 @@ return mod {
 					rows = {
 						{
 							title = "No telemetry",
-							description = "Moonmux sends nothing about you or your use of it: no usage data, no crash reports, nothing from your terminals. It talks to herdr-core and tmux on this computer; herdr-core reaches your machines over ssh. Send feedback goes to the coding agent you pick, only when you send it.",
+							description = "Moonmux sends nothing about you or your use of it: no usage data, no crash reports, nothing from your terminals. It talks to herdr-core and tmux on this computer; herdr-core reaches your machines over ssh. Once a day it asks GitHub for its newest release, sending nothing but the request. Send feedback goes to the coding agent you pick, only when you send it.",
 							control = ui.icon { name = "lock", tone = "success" },
 						},
 					},

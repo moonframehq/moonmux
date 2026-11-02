@@ -60,6 +60,9 @@ fn main() -> ExitCode {
         .title("Moonmux")
         .app_id("dev.penso.moonmux")
         .version(env!("CARGO_PKG_VERSION"))
+        // Check for Updates, and a daily check, against this repository's
+        // releases (Moonframe's updater, docs/updates.md there).
+        .updates("moonframehq/moonmux")
         .icon(include_bytes!("../app/icon.png"));
     let app = if from_checkout() {
         app.app_dir(SOURCE)

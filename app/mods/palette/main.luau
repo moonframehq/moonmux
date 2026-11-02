@@ -15,6 +15,7 @@ type State = { open: boolean, menus: { any } }
 -- Entries for app commands no menu of ours holds.
 local EXTRA: { Entry } = {
 	{ label = "Toggle Light/Dark", group = "View", to = "app:command", msg = "toggle-theme" },
+	{ label = "Check for Updates…", group = "Moonmux", to = "app:command", msg = "check-for-updates" },
 }
 
 -- The palette's entries: each menu item it can run, by menu, then EXTRA.
