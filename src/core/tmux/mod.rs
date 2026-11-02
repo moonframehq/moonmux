@@ -166,12 +166,12 @@ impl Backend for Tmux {
             let agent = processes
                 .agent_under(pane.pid)
                 .or_else(|| agents::known(&pane.command));
+            let previous = self
+                .tracks
+                .get(&pane.address())
+                .copied()
+                .unwrap_or_default();
             let track = agent.map(|_| {
-                let previous = self
-                    .tracks
-                    .get(&pane.address())
-                    .copied()
-                    .unwrap_or_default();
                 let screen = tmux
                     .run(&pane.server, &["capture-pane", "-p", "-J", "-t", &pane.id])
                     .unwrap_or_default();
@@ -181,8 +181,8 @@ impl Backend for Tmux {
                 let (observed, recent) = previous.observe(&screen, now);
                 observed.next(agents::read_screen(&screen), recent, now)
             });
-            if let Some(track) = track {
-                tracks.insert(pane.address(), track);
+            if let Some(kept) = kept(previous, track) {
+                tracks.insert(pane.address(), kept);
             }
             terminals.push(entry(pane, agent, track, ours, &pane_id, home));
         }
@@ -305,6 +305,19 @@ fn pane_of(session: &str) -> String {
     } else {
         String::new()
     }
+}
+
+/// What to remember of a live pane until the next tick: its agent's
+/// `track`, or with no agent, the count of turns it finished before. The
+/// views remember the last turn seen by address, so a count starting over
+/// for the next agent in the same pane would pass its first `done` off as
+/// already seen. `None` for a pane with nothing to remember.
+fn kept(previous: Track, track: Option<Track>) -> Option<Track> {
+    let kept = track.unwrap_or(Track {
+        turn: previous.turn,
+        ..Track::default()
+    });
+    (kept != Track::default()).then_some(kept)
 }
 
 /// One pane as the mods read it.

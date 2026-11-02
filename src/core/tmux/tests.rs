@@ -114,6 +114,25 @@ fn a_pane_has_ended_until_its_shell_starts_again() {
 }
 
 #[test]
+fn a_new_agent_in_the_same_pane_counts_turns_on() {
+    use agents::Seen;
+    let done = Track::default()
+        .next(Seen::Working, true, 1)
+        .next(Seen::Quiet, false, 2);
+    assert_eq!(done.turn, 1);
+    // The agent exits: the pane is back at its shell.
+    let shell = kept(done, None).unwrap();
+    assert_eq!((shell.status, shell.turn), (Status::Idle, 1));
+    // The next agent there finishes a turn of its own.
+    let next = shell
+        .next(Seen::Working, true, 3)
+        .next(Seen::Quiet, false, 4);
+    assert_eq!((next.status, next.turn), (Status::Done, 2));
+    assert_eq!(kept(Track::default(), None), None);
+    assert_eq!(kept(Track::default(), Some(next)), Some(next));
+}
+
+#[test]
 fn only_known_keys_are_sent() {
     assert_eq!(tmux_key("esc"), Some("Escape"));
     assert_eq!(tmux_key("enter"), Some("Enter"));
