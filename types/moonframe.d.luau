@@ -120,6 +120,89 @@ type Float = FloatAt | { at: FloatAt, inset: number? } | {
 	left: number?,
 }
 
+-- Out of the flow, over the parent at fractions of its size: `{ left =
+-- 0.1, top = 0.2, width = 0.5, height = 0.3 }`. A crop frame over a
+-- picture (in a `ui.image`'s `overlay`, fractions of the picture), a
+-- marker on a track.
+type Area = {
+	left: number?,
+	top: number?,
+	width: number?,
+	height: number?,
+}
+
+-- The pointer's shape over a row or column.
+type Cursor =
+	"default"
+	| "pointer"
+	| "text"
+	| "crosshair"
+	| "grab"
+	| "grabbing"
+	| "move"
+	| "ew-resize"
+	| "ns-resize"
+	| "nwse-resize"
+	| "nesw-resize"
+	| "col-resize"
+	| "row-resize"
+	| "not-allowed"
+
+-- Turns a drag into a `value` in `pointer` messages. Without `speed` the
+-- value is where the pointer is along `axis` (a slider: `min` at the left
+-- or bottom, `max` at the right or top); with it, `value` plus pixels
+-- dragged times `speed` (a number scrubbed by dragging its label). It
+-- snaps to `step` and stays between `min` and `max`.
+type Range = {
+	min: number,
+	max: number,
+	step: number?,
+	value: number?,
+	speed: number?,
+	axis: ("x" | "y")?,
+}
+
+-- What a `pointer` message carries, added to its `msg` (a table gets the
+-- fields; anything else arrives as `{ msg = msg, ... }`). `x` and `y` are
+-- fractions of the box as it was when the button went down (0 to 1 inside,
+-- beyond while dragging outside); `dx` and `dy` pixels since then.
+type PointerMsg = {
+	phase: "down" | "move" | "up" | "hover" | "leave",
+	x: number,
+	y: number,
+	dx: number,
+	dy: number,
+	width: number,
+	height: number,
+	button: ("left" | "middle" | "right")?,
+	clicks: number?,
+	-- With `range`: the value the drag sets.
+	value: number?,
+	shift: boolean?,
+	alt: boolean?,
+	ctrl: boolean?,
+	cmd: boolean?,
+	secondary: boolean?,
+}
+
+-- What a `wheel` message carries: `dx`, `dy` the pixels scrolled, `zoom`
+-- a trackpad pinch's change (0.1 is 10 % larger, 0 for a scroll), and
+-- where over the box (`x`, `y`), with the keys held.
+type WheelMsg = {
+	x: number,
+	y: number,
+	dx: number,
+	dy: number,
+	zoom: number,
+	width: number,
+	height: number,
+	shift: boolean?,
+	alt: boolean?,
+	ctrl: boolean?,
+	cmd: boolean?,
+	secondary: boolean?,
+}
+
 -- Each props type is spelled out rather than combined with `&`, so string
 -- literals such as `variant = "ghost"` check against their unions.
 
@@ -153,6 +236,8 @@ type StackProps = {
 	max_height: number?,
 	-- Out of the flow, over the parent: see `Float`.
 	float: Float?,
+	-- Out of the flow, at fractions of the parent: see `Area`.
+	area: Area?,
 	align: Align?,
 	justify: Justify?,
 	wrap: boolean?,
@@ -170,8 +255,25 @@ type StackProps = {
 	-- it appears and shrinks away when it goes, as tabs open and close.
 	key: string?,
 	-- Opens the mod named this in a window of its own (or raises it) when
-	-- clicked: a tool that stays open beside the main window. Takes no `msg`.
+	-- clicked: a tool that stays open beside the main window. Takes no `msg`;
+	-- to open it on a page, send `app:window` `{ open = "<mod>", send = ... }`.
 	window: string?,
+	-- Sent as a button goes down on it, as the pointer moves while held
+	-- (wherever it goes), and as it comes up, with a `PointerMsg`'s fields
+	-- added: drags, sliders, handles, canvases. The innermost stack with
+	-- `pointer` takes the press. To `to` if given.
+	pointer: Data,
+	-- Also send `phase = "hover"` moves with no button held, and `"leave"`.
+	hover: boolean?,
+	-- Adds the `value` a drag sets to `pointer` messages: see `Range`.
+	range: Range?,
+	-- Sent as the wheel or trackpad scrolls or pinches over it, with a
+	-- `WheelMsg`'s fields; what is around it does not scroll.
+	wheel: Data,
+	-- Sent when files are dropped on it from another app, with `paths`
+	-- (and `x`, `y`). Dropped pictures may then show in this mod's `ui.image`.
+	drop: Data,
+	cursor: Cursor?,
 	[number]: Child,
 }
 
@@ -198,6 +300,8 @@ type PanelProps = {
 	max_height: number?,
 	-- Out of the flow, over the parent: see `Float`.
 	float: Float?,
+	-- Out of the flow, at fractions of the parent: see `Area`.
+	area: Area?,
 	title: string?,
 	actions: { Child }?,
 	[number]: Child,
@@ -391,6 +495,7 @@ type IconName =
 	| "command"
 	| "copy"
 	| "cpu"
+	| "crop"
 	| "dash"
 	| "database"
 	| "delete"
@@ -482,6 +587,7 @@ type IconName =
 	| "pencil"
 	| "pin"
 	| "pin-off"
+	| "pipette"
 	| "play"
 	| "plug"
 	| "plus"
@@ -494,18 +600,22 @@ type IconName =
 	| "reply"
 	| "resize-corner"
 	| "rocket"
+	| "rotate-ccw"
 	| "rotate-ccw-clock"
 	| "rotate-cw"
 	| "rows-2"
+	| "scan"
 	| "search"
 	| "send"
 	| "server"
 	| "settings"
 	| "settings-2"
 	| "shield"
+	| "sliders-horizontal"
 	| "sort-ascending"
 	| "sort-descending"
 	| "sparkles"
+	| "spline"
 	| "split-square-horizontal"
 	| "split-square-vertical"
 	| "square"
@@ -542,6 +652,8 @@ type IconName =
 	| "window-restore"
 	| "workflow"
 	| "zap"
+	| "zoom-in"
+	| "zoom-out"
 
 -- Drawn at the size and color of text, so `color` and `size` style it.
 type IconProps = {
@@ -578,6 +690,19 @@ type ImageProps = {
 	width: number?,
 	height: number?,
 	fit: Fit?,
+	-- Screen pixels per picture pixel (1 is 100 %), panned so `center` is
+	-- in the middle: a viewer. Unset, it fits as `fit` says. Without a
+	-- `width` or `height` it fills its parent that way.
+	zoom: number?,
+	-- The point of the picture in the middle while zoomed: `{ x, y }`
+	-- fractions of the picture; `{ 0.5, 0.5 }` when unset.
+	center: { number }?,
+	-- Sent with `width`, `height` (the picture's own pixels), `box_width`,
+	-- `box_height` and `fit` (the zoom that fits it) when they change.
+	measure: Data,
+	-- Drawn over the picture wherever it lands, so `area` there is in
+	-- fractions of the picture: a crop frame, spots, a grid.
+	overlay: { Child }?,
 	-- Shown under the pointer; sent on a right-click (to the mod `to`, else
 	-- this one); copied on a click.
 	tooltip: string?,
@@ -767,6 +892,9 @@ type PopoverProps = {
 	gap: number?,
 	width: number?,
 	keys: Keys?,
+	-- While open, a click on the anchor reaches it instead of sending
+	-- `dismiss`: a field whose suggestions show under it.
+	anchor_clicks: boolean?,
 	content: Element,
 	[number]: Child,
 }
@@ -1150,8 +1278,8 @@ type Files = {
 	-- The root folder's name, and its absolute path.
 	root: string,
 	path: string,
-	-- Where a terminal starts: the folder `moonframe` was started from,
-	-- else `path`.
+	-- Where a terminal starts: the project of the terminal last used,
+	-- else the folder `moonframe` was started from, else `path`.
 	cwd: string?,
 	-- Entries of the root (key "") and of each open folder (its path from
 	-- the root), folders first, each group sorted without regard to case.
@@ -1310,12 +1438,38 @@ type NotificationClick = {
 	clicked: boolean,
 }
 
+-- What `{ to = "app:pick", msg = ... }` opens: the system's panel to open
+-- files, pick folders, or name a file to save. The answer comes back to
+-- the mod as `reply` with `paths` (a list; `path` for a save) or
+-- `cancelled = true` added. What the user picks may show in that mod's
+-- `ui.image` (and its components').
+type PickMsg = {
+	kind: ("open" | "folder" | "save")?,
+	reply: Data,
+	multiple: boolean?,
+	-- The panel's button or title, such as "Open scan".
+	prompt: string?,
+	-- Extensions files to open must have, such as { "tif", "png" }.
+	types: { string }?,
+	-- A save panel's suggested name and starting folder.
+	name: string?,
+	folder: string?,
+}
+
+-- What `{ to = "app:window", msg = ... }` asks: a mod's name opens that
+-- mod in a window of its own (or raises it), as a control's `window` does;
+-- `{ open = "<mod>", send = <msg> }` first delivers `send` to its `update`,
+-- so it opens on a page; `{ close = "<mod>" }` closes it. Any mod may ask
+-- for any mod's window; never the shell's.
+type WindowMsg = string | { open: string, send: Data? } | { close: string }
+
 -- A message `update` sends on. `to` is a mod, `"parent"`, `"shell"`,
 -- `"provider:<name>"`, `"topic:<name>"`, or the app itself:
 -- `"app:command"` (`msg` a `Command`), `"app:appearance"` (`msg` an
 -- `AppearanceMode`), `"app:theme"` (`msg` `{ light: string?, dark: string? }`),
--- `"app:sound"` (`msg` `"default"` or a sound file's path) and
--- `"app:notify"` (`msg` a `NotifyMsg`).
+-- `"app:sound"` (`msg` `"default"` or a sound file's path),
+-- `"app:notify"` (`msg` a `NotifyMsg`), `"app:pick"` (`msg` a `PickMsg`)
+-- and `"app:window"` (`msg` a `WindowMsg`).
 type Send = {
 	to: string,
 	msg: Data,
@@ -1329,6 +1483,15 @@ type Window = {
 	traffic_lights: { x: number?, y: number? }?,
 	-- The size the window opens at, before the user resizes it.
 	size: { width: number?, height: number? }?,
+}
+
+-- A mod's own window (`window` on a mod other than main.luau), when a
+-- control's `window` or `app:window` opens it: the size it opens at and
+-- the smallest the user can make it, each kept within the screen; 420x560
+-- and 280x240 when unset.
+type ModWindow = {
+	size: { width: number, height: number }?,
+	min_size: { width: number, height: number }?,
 }
 
 -- A menu item in the shell's `menus`: it sends `msg` (to the shell, or to
@@ -1392,6 +1555,11 @@ type Mod<State> = {
 	-- Topics it hears in `update`: names, or prefixes ending in `*`.
 	-- `provider/<name>` carries a provider's data as it changes.
 	subscribe: { string }?,
+	-- Keys it takes anywhere in the window once nothing nearer does (an
+	-- open overlay, a terminal; none while a text field has focus):
+	-- `{ ["secondary-1"] = "histogram" }`; every mounted copy hears them
+	-- too. Keys that type text need ctrl, alt, cmd or secondary.
+	keys: Keys?,
 	-- Offered as a kind of tab: each tab mounts an instance of it.
 	tab: TabEntry?,
 	region: string?,
@@ -1399,8 +1567,9 @@ type Mod<State> = {
 	title: string?,
 	-- Rules for what this mod draws, by selector.
 	styles: { [string]: Style }?,
-	-- Only in main.luau: the window's frame, read when the app starts.
-	window: Window?,
+	-- In main.luau, the main window's frame, read when the app starts (a
+	-- `Window`); in another mod, the size of its own window (a `ModWindow`).
+	window: (Window | ModWindow)?,
 	-- Only in main.luau: menus after the app menu (a "View" one merges into
 	-- the host's), and what About says.
 	menus: { AppMenu }?,

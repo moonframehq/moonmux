@@ -731,10 +731,106 @@ return mod {
 }
 ```
 
+- `app:pick`, `msg` `{ kind = "open" | "folder" | "save", reply, multiple?,
+  prompt?, types?, name?, folder? }`: the system's panel to open files
+  (`types` keeps those extensions), pick folders, or name a file to save
+  (`name` and `folder` suggest one). The answer comes back to the mod's
+  `update` as `reply` with `paths` (a list; `path` for a save) or
+  `cancelled = true` added. What the user picks, they chose to show that
+  mod, so its `ui.image` (and its components') may show it from then on
+  (folders: what is in them); other mods may not.
+
+```lua
+update = function(state, msg)
+	if msg == "open" then
+		return state, { { to = "app:pick", msg = { kind = "open", types = { "tif", "jpg" }, reply = { opened = true } } } }
+	elseif type(msg) == "table" and msg.opened and msg.paths then
+		state.file = msg.paths[1]
+	end
+end,
+```
+
+- `app:window`, `msg` a mod's name, `{ open = "<mod>", send = <msg>? }`
+  or `{ close = "<mod>" }`: opens that mod in a window of its own (or
+  raises it), as a control's `window = "<mod>"` does, or closes it. `send`
+  reaches the mod's `update` (from the asking mod) before its window
+  draws, so it opens on a page; a `send` to a mod that does not exist is
+  the sender's error. The mod's `title` titles the window, and its
+  `window = { size = { width, height }, min_size = { width, height } }`
+  sizes it (both kept within the screen, as the main window's `size` is;
+  420x560 and 280x240 when unset; a size takes effect the next time the
+  window opens). Any mod may open or close any mod's window, as any
+  control may: the window shows that mod's own view and `send` is an
+  ordinary message, so nothing new crosses. The shell is the main window
+  and is never opened this way. Close a mod's own window from its
+  `update` with `{ close = "<mod>" }`: `app:command` `close-window` runs in
+  the main window and would close that.
+
+```lua
+-- mods/settings/main.luau: Settings as a window, on the page asked for
+return mod {
+	title = "Settings",
+	window = { size = { width = 860, height = 600 }, min_size = { width = 640, height = 480 } },
+	init = function() return { page = "general" } end,
+	update = function(state, msg)
+		if type(msg) == "table" and msg.page then
+			state.page = msg.page
+		elseif msg == "done" then
+			return state, { { to = "app:window", msg = { close = "settings" } } }
+		end
+	end,
+	view = function(state) return ui.text(state.page) end,
+}
+
+-- elsewhere, a palette entry or another mod's update:
+return state, { { to = "app:window", msg = { open = "settings", send = { page = "machines" } } } }
+```
+
 - A request the app cannot read (an unknown command, a misspelled
   `app:<what>`) is the sender's error, shown as an `update` error.
 - Previews (the Components window) ask nothing, and a provider's answer
   cannot be passed off as a request.
+
+## Pointer, dropped files and keys anywhere
+
+A row or column hears more than clicks:
+
+- `pointer = <msg>` is sent as a button goes down on it (`phase = "down"`),
+  as the pointer moves while held, even outside it (`"move"`), and as it
+  comes up (`"up"`), with `x`, `y` (fractions of its box as it was at the
+  press), `dx`, `dy` (pixels since), `width`, `height`, `button`, `clicks`
+  and the keys held added. The innermost one with `pointer` takes the
+  press. `hover = true` also sends `"hover"` and `"leave"`.
+- `range = { min, max, step?, value?, speed?, axis? }` adds the `value` a
+  drag sets, so the view does no arithmetic: where the pointer is between
+  `min` and `max` (a slider), or, with `speed`, `value` plus pixels times
+  `speed`, counted from the value at the press (a scrubbed number).
+- `wheel = <msg>` gets scrolls and trackpad pinches over it (`dx`, `dy`,
+  `zoom`, `x`, `y`), and keeps them from scrolling what is around it.
+- `drop = <msg>` gets files dropped from other apps (`paths`); the mod's
+  `ui.image` may show them from then on.
+- `cursor = "crosshair"` (`grab`, `grabbing`, `ew-resize`, `move`, ...).
+- `area = { left, top, width, height }` places any row, column or panel at
+  fractions of its parent: handles, markers, a crop frame. In a
+  `ui.image`'s `overlay` those are fractions of the picture, wherever zoom
+  and pan put it (`ui.image { zoom, center, overlay, measure }`).
+
+Record undo on `phase == "up"`, not on every move. Before writing one,
+look for a component: `slider`, `number-field`, `histogram` (draggable
+markers), `curve-editor`, `image-viewer`.
+
+A mod can take keys anywhere in the window, once nothing nearer (an open
+overlay, a terminal) took them. Every mod, and every mounted copy of one
+(a tab's), that takes a key hears it. While a text field has focus it
+keeps all its keys (copy, select all, undo), so mods hear none:
+
+```lua
+return mod {
+	keys = { ["secondary-1"] = "histogram", ["secondary-l"] = "log" },
+	update = function(state, msg) ... end,
+	view = function(state) ... end,
+}
+```
 
 ## Tabs
 
@@ -827,6 +923,14 @@ Tabs open and close with the `.tabs-tab` rule's transition (see
    the user has in front, and they are usually working. Test behaviour
    with `just check`, unit tests and screenshots by PID; ask the user to try
    interactions themselves.
+6. Every change the window reloads for is kept as a snapshot of the user's
+   folder (or the profile's), whoever made it, so you need not commit as
+   you go. When the user asks to take a change back, use
+   `moonframe [--profile NAME] history undo` (`redo` to go forward again,
+   `list` and `restore ID` for an older one, `show ID` for its patch); the
+   window reloads with the files it writes back. Undo leaves
+   `settings.toml`, databases and installed packages as they are. The user
+   can do the same from View > Undo Last Change (⌥⌘Z) in Developer Mode.
 
 `just types` type-checks every `.luau` file in `app/` against
 `types/moonframe.d.luau` in strict mode (set in `app/.luaurc`). It runs in
@@ -912,10 +1016,13 @@ Rules that trip agents up:
 - Unknown element types, keys and token values are errors, not ignored.
   `just check` names them.
 - The keys allowed on the `mod { }` table are only `init`, `update`, `view`,
-  `region`, `order`, `title`, `styles`, `subscribe` (see "Topics") and `tab`
-  (see "Tabs"), plus `window`, `menus` and `about` in `main.luau` only (see
-  "Window and title bar" and "Menus and About"). `update` and `view` also
-  get `props` last.
+  `region`, `order`, `title`, `styles`, `subscribe` (see "Topics"), `tab`
+  (see "Tabs") and `window`, plus `menus` and `about` in `main.luau` only
+  (see "Menus and About"). In `main.luau`, `window` is the main window's
+  frame (see "Window and title bar"); in another mod it is the size of the
+  mod's own window, `window = { size = { width, height }, min_size = {
+  width, height } }` (see "Asking the app", `app:window`). `update` and
+  `view` also get `props` last.
 - State and messages must be plain data: nil, booleans, numbers, strings,
   lists, and string-keyed tables. Functions in state stop it surviving a
   reload. A table is a list without gaps or has string keys, never both.
@@ -937,7 +1044,7 @@ Text-like elements take their main value positionally:
 
 | Element | Keys (besides children) | Notes |
 | --- | --- | --- |
-| `ui.row { ... }`, `ui.column { ... }` | frame keys, `align`, `justify`, `wrap`, `drag`, `selected`, `key`, extras, and `msg`/`to`, `command` or `window` (a mod to open in a window of its own, as the title bar's layout button opens `mods/looks`; give the mod no `region` and a `title`, which titles the window) | flex containers; with `msg` or `command` the whole stack is clickable (style it with `.class:hover`). `drag = true` makes it a title bar: dragging it moves the window, a double click zooms it, and buttons and clickable stacks inside still take their clicks (see "Window and title bar"). Defaults: `gap = "normal"`, `padding = "none"` |
+| `ui.row { ... }`, `ui.column { ... }` | frame keys, `align`, `justify`, `wrap`, `drag`, `selected`, `key`, extras, and `msg`/`to`, `command` or `window` (a mod to open in a window of its own, as the title bar's layout button opens `mods/looks`; give the mod no `region` and a `title`, which titles the window, and a `window = { size, min_size }` to size it; `window` takes no `msg`, so to open it on a page send `app:window` instead) | flex containers; with `msg` or `command` the whole stack is clickable (style it with `.class:hover`). `drag = true` makes it a title bar: dragging it moves the window, a double click zooms it, and buttons and clickable stacks inside still take their clicks (see "Window and title bar"). Defaults: `gap = "normal"`, `padding = "none"` |
 | `ui.panel { ... }` | frame keys, `title`, `actions = { elements }` | header (title plus right-aligned actions) over a column body. Defaults: `gap` and `padding` `"normal"` |
 | `ui.hsplit { ... }`, `ui.vsplit { ... }` | `id`, `divider` | user-resizable; children must be `ui.pane`. Always grows to fill. `divider = false` drops the hairline between panes (cards on a background), showing a handle only on hover |
 | `ui.pane { ... }` | `size`, `min`, `max`, `fixed`, `visible`, `lazy`, `gap`, `padding`, `surface`, `scroll` | only inside a split; content is a column. `fixed = true` keeps its size on window resize and needs `size`. `lazy = true` starts what it mounts only once it first shows and keeps it asleep (neither run nor drawn, state kept) while hidden: a heavy side panel or tab |
@@ -1579,6 +1686,10 @@ terminal log. There are four kinds:
   - It runs in its own folder (`providers/<name>/`); the built-in ones `cd`
     to the repository holding the app (`git -C ../.. rev-parse
     --show-toplevel`), or to `$LAYOUTS_REPO` when set.
+  - `$MOONFRAME_PROJECT` is the project the user works in when it starts:
+    the git repository of the terminal they last used. When that changes,
+    the app sends `{"from":"","message":{"project":"<path>"}}`; an empty
+    `from` is the app itself (no mod has one), so trust only that line.
   - If it exits, the provider fails (a banner) and stays stopped until its
     folder changes, so never exit on an error: publish
     `{"available":false,"reason":"..."}` and keep polling. Exit only when
@@ -1614,16 +1725,20 @@ Linux; on Windows they need a bash such as Git Bash, and `agents` does
 not work there. Each publishes `available` and, when false,
 only `reason` (with `repository = false` for git). Times are Unix seconds.
 
-`app.git` (git): every 5 s when `git status` or the numstat changed;
+`app.git` (git): the repository is `LAYOUTS_REPO`, else the one of the
+terminal the user last typed in (as `app.files`), else the one holding the
+app. Every 5 s when `git status` or the numstat changed;
 worktrees, branches, remote and stashes every 30 s or when HEAD moves.
 Any message refreshes. `{ diff = "<path>" }` adds `diff` for that file and
 keeps it fresh (only a file in `files`; any other path gets an empty diff);
 `{ diff = false }` drops it. Writes, one at a time, only from the mods named
 in `providers/git`'s `[settings] writers` (`status` as shipped; add yours
 there), each answered to the mod that asked (`{ reply, action, ok, message | error }`):
-`{ commit = "<message>", id = ... }` stages everything and commits;
-`{ push = true, id = ... }` pushes the branch to `origin`, setting its
-upstream. Signing and pushing may wait on the user's hardware key: show
+`{ commit = "<message>", root, id = ... }` stages everything and commits;
+`{ push = true, root, id = ... }` pushes the branch to `origin`, setting its
+upstream. `root` is the repository the write is for, as `app.git.root` gave
+it: the repository follows the terminal, so one that moved (or no `root`)
+is refused, never written to another. Signing and pushing may wait on the user's hardware key: show
 that something runs until the reply comes.
 
 | field | shape |
@@ -1640,7 +1755,11 @@ that something runs until the reply comes.
 | `diff` | `{ path, binary, lines, truncated, hunks = { { header, old_start, new_start, lines = { { kind ("add" "del" "ctx"), old?, new?, text } } } } }`, at most 1200 lines of 300 characters |
 
 `app.docs` (docs, native): `{ available, root }`, the root `app.files`
-lists. It reads and saves the project's text files (UTF-8, at most 1 MiB)
+lists, followed as it moves; a file read before it moved is still watched
+and saved where it was read. `read` and `write` take `root` (the absolute
+folder a file is in, as `app.files.path` named it) so a tab keeps its file
+after the project moves; only a root the provider has had, or a project
+the app has followed (kept across launches), is accepted. It reads and saves the project's text files (UTF-8, at most 1 MiB)
 for the mod that asks, answering it (`{ reply, action, ok, path, ... }`):
 `{ read = "<path>", id = ... }` answers with `text` and `version`, and from
 then on sends that mod `{ changed = "<path>", version }` (or `missing =
@@ -1691,9 +1810,12 @@ GitLab merge requests fill `prs` and `current_pr`.
 | `issues` | 30 open: `{ number, title, url, author, updated, labels = { { name, color } }, assignees = { login } }` |
 
 `app.files` (files): the project's files, every 3 s when they changed. The
-root is `MOONFRAME_FILES`, else the git repository `moonframe` was started
-in, else the one the app runs from; with none it is unavailable (never home).
-`cwd` is where a terminal starts: the launch folder, else the root. Only the root and the open folders are
+root is `MOONFRAME_FILES`, else the git repository of the terminal the user
+last typed in (followed as they `cd` or switch tabs; a terminal outside any
+repository leaves it where it was), else the git repository `moonframe` was
+started in, else the one the app runs from; with none it is unavailable
+(never home). `cwd` is where a terminal starts: that project, else the
+launch folder, else the root. Only the root and the open folders are
 listed, so a large folder costs nothing until it is opened: send
 `{ open = "app\napp/mods" }`, the open folders' paths one per line, the
 whole set each time (`mods/explorer` does). `.git` and `.DS_Store` are
