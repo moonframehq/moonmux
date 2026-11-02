@@ -67,6 +67,8 @@ compile_error!("enable at least one terminal backend: the `herdr-core` or `tmux`
 
 #[cfg(feature = "herdr-core")]
 mod herdr;
+#[cfg(feature = "herdr-core")]
+pub(crate) use herdr::find_hc;
 #[cfg(feature = "tmux")]
 mod tmux;
 

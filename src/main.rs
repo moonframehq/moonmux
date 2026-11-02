@@ -11,6 +11,7 @@ mod changes;
 mod core;
 mod folder;
 mod git;
+mod migrate;
 mod programs;
 
 use {
@@ -19,7 +20,7 @@ use {
 };
 
 /// The app's name: changing it orphans running panes and loses saved
-/// spaces. Its folders are `~/.config/moonmux` and
+/// spaces, unless migrate.rs brings them along. Its folders are `~/.config/moonmux` and
 /// `~/.cache/moonmux`, and the `moonframe-app` label herdr-core
 /// keeps on its terminals.
 pub(crate) const NAME: &str = "moonmux";
@@ -50,6 +51,11 @@ fn from_checkout() -> bool {
 }
 
 fn main() -> ExitCode {
+    // Before Moonframe opens anything under the app's name; never in a
+    // headless `--check`, which only loads the app.
+    if !std::env::args_os().any(|arg| arg == "--check") {
+        migrate::run();
+    }
     let app = Moonframe::new(NAME)
         .title("Moonmux")
         .app_id("dev.penso.moonmux")

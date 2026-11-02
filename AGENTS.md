@@ -22,7 +22,8 @@ built on the Moonframe library. Its name (`NAME` in `src/main.rs`) is the
 label on its herdr-core terminals, its tmux server (`tmux -L moonmux`), its
 config and cache folders and its saved workspace: changing it, or the app
 id (`dev.penso.moonmux`), orphans users' running panes and loses their
-spaces, so a rename needs a migration. A backend owns every terminal
+spaces, so a rename needs a migration (`src/migrate.rs` brings along
+the former `herdr-moonframe`). A backend owns every terminal
 process, herdr-core (`hc`) or tmux; this app arranges them and shows the
 agents. Closing the window must leave the backends and their terminals
 running.
@@ -35,6 +36,7 @@ tests with either alone and with both; `just features` and CI check that.
 | Location | Responsibility |
 | --- | --- |
 | `src/main.rs` | `Moonframe::new("moonmux")`: `app/` read live from the checkout, else compiled in (`AppFiles`) |
+| `src/migrate.rs` | Before the window opens, moves what the app kept as `herdr-moonframe` (its folders, its herdr-core document, its terminals' label) to `NAME`, once, never over anything saved under it |
 | `src/core/mod.rs` | The `core` native provider (`app.core`): each second, the terminals of every backend built in and installed, behind the `Backend` trait; which backend Auto picks; routing a peek and actions (send, keys, interrupt, close_panes, start) to the backend whose address they name; opening the releases page; `new_command` for every child process |
 | `src/core/herdr.rs` | The herdr-core backend (`herdr-core` feature): `hc ls`, labels via `hc get`, a peek (`hc read`), machines (`hc machine ls`), `hc kill` and `hc label` |
 | `src/core/tmux/` | The tmux backend (`tmux` feature): panes of the app's own server (`tmux -L moonmux`) and the user's other servers (`server.rs`), agents found under each pane's shell and read off its screen (`agents.rs`) |

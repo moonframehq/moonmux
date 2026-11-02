@@ -400,7 +400,7 @@ fn entry(terminal: &Value, labels: &Labels, status_ms: i64, home: &str) -> Value
 
 /// `hc`: `$HC_BIN`, else on `PATH`, else where its installer puts it (an
 /// app opened from the Dock has a short `PATH`).
-fn find_hc() -> Option<PathBuf> {
+pub(crate) fn find_hc() -> Option<PathBuf> {
     if let Some(bin) = std::env::var_os("HC_BIN").map(PathBuf::from)
         && bin.is_file()
     {
