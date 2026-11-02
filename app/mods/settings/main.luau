@@ -15,7 +15,7 @@
 -- `moonmux/alerts` as { enabled, elsewhere } for mods/alerts. Machines lists
 -- `app.core.machines` (`hc machine ls`), read-only.
 
-local settings_page = use "settings-page"
+local settings_sheet = use "settings-sheet"
 local segmented = use "segmented"
 local switch = use "switch"
 local status_dot = use "status-dot"
@@ -412,7 +412,7 @@ return mod {
 			backdrop = true,
 			width = 860,
 			class = "st-dialog",
-			content = settings_page {
+			content = settings_sheet {
 				height = 600,
 				title = TITLES[state.page],
 				nav = {
@@ -430,7 +430,7 @@ return mod {
 				sections = sections,
 				status = "Changes apply at once.",
 				buttons = if state.page == "look"
-					then { { label = "Reset layout", msg = "reset-layout", variant = "ghost" }, DONE }
+					then { { label = "Reset layout", msg = "reset-layout" }, DONE }
 					else { DONE },
 			},
 		}
