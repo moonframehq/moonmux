@@ -33,11 +33,13 @@ fn entries_and_counts() {
         status: Status::Working,
         since: 1_793_567_863_379,
         turn: 0,
+        ..Track::default()
     };
     let blocked = Track {
         status: Status::Blocked,
         since: 5,
         turn: 2,
+        ..Track::default()
     };
     let entries = [
         entry(

@@ -21,7 +21,7 @@ const MAX_SERVERS: usize = 8;
 /// What `list-panes` prints for each pane, one field per tab.
 const PANE_FORMAT: &str = "#{pane_id}\t#{session_name}\t#{window_index}\t#{pane_index}\t\
                            #{pane_pid}\t#{pane_current_command}\t#{pane_current_path}\t\
-                           #{pane_dead}\t#{window_activity}";
+                           #{pane_dead}";
 
 /// The `tmux` found on this machine.
 #[derive(Clone, Debug)]
@@ -145,25 +145,12 @@ pub(crate) struct Pane {
     pub(crate) command: String,
     pub(crate) cwd: String,
     pub(crate) dead: bool,
-    /// When its window last printed something, in seconds since the epoch.
-    pub(crate) activity: u64,
 }
 
 impl Pane {
     fn parse(server: &str, line: &str) -> Option<Self> {
         let fields: Vec<&str> = line.split('\t').collect();
-        let [
-            id,
-            session,
-            window,
-            index,
-            pid,
-            command,
-            cwd,
-            dead,
-            activity,
-        ] = fields[..]
-        else {
+        let [id, session, window, index, pid, command, cwd, dead] = fields[..] else {
             return None;
         };
         is_pane_id(id).then(|| Self {
@@ -176,7 +163,6 @@ impl Pane {
             command: command.to_owned(),
             cwd: cwd.to_owned(),
             dead: dead == "1",
-            activity: activity.parse().unwrap_or(0),
         })
     }
 
@@ -271,13 +257,12 @@ mod tests {
 
     #[test]
     fn a_pane_line_parses() {
-        let line = "%7\twork\t1\t0\t4242\tzsh\t/home/u/x\t0\t1700000000";
+        let line = "%7\twork\t1\t0\t4242\tzsh\t/home/u/x\t0";
         let pane = Pane::parse("default", line).unwrap();
         assert_eq!(pane.id, "%7");
         assert_eq!(pane.pid, 4242);
         assert_eq!(pane.cwd, "/home/u/x");
         assert!(!pane.dead);
-        assert_eq!(pane.activity, 1_700_000_000);
         assert_eq!(pane.address(), "default:%7");
         assert_eq!(pane.target(), "work:1.0");
         let other = Pane::parse("scratch", line).unwrap();

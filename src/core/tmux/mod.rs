@@ -38,8 +38,6 @@ const START_OPTION: &str = "@moonmux-start";
 const SERVERS_EVERY: u64 = 10;
 /// Lines of history above the screen a peek shows.
 const PEEK_LINES: &str = "-60";
-/// Seconds since a pane last printed for it to count as printing still.
-const RECENT: u64 = 2;
 
 pub(crate) struct Tmux {
     tmux: Option<Program>,
@@ -151,7 +149,6 @@ impl Backend for Tmux {
         }
         let processes = Processes::list();
         let now = now_ms();
-        let now_secs = u64::try_from(now / 1000).unwrap_or(0);
 
         let mut tracks = HashMap::new();
         let mut terminals = Vec::new();
@@ -178,8 +175,11 @@ impl Backend for Tmux {
                 let screen = tmux
                     .run(&pane.server, &["capture-pane", "-p", "-J", "-t", &pane.id])
                     .unwrap_or_default();
-                let recent = now_secs.saturating_sub(pane.activity) <= RECENT;
-                previous.next(agents::read_screen(&screen), recent, now)
+                // Whether this pane's own screen changed lately: tmux only
+                // keeps activity per window, which a busy sibling pane
+                // would keep fresh after the agent finished.
+                let (observed, recent) = previous.observe(&screen, now);
+                observed.next(agents::read_screen(&screen), recent, now)
             });
             if let Some(track) = track {
                 tracks.insert(pane.address(), track);

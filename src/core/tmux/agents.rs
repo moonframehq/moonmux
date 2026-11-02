@@ -9,8 +9,16 @@
 
 use {
     crate::core::new_command,
-    std::{collections::HashMap, process::Stdio},
+    std::{
+        collections::HashMap,
+        hash::{DefaultHasher, Hash, Hasher},
+        process::Stdio,
+    },
 };
+
+/// Milliseconds since a pane's screen last changed for it to count as
+/// printing still.
+const RECENT_MS: i64 = 2000;
 
 /// Runtimes an agent may run under, its script named next (`node
 /// …/bin/codex`).
@@ -203,9 +211,27 @@ pub(crate) struct Track {
     pub(crate) status: Status,
     pub(crate) since: i64,
     pub(crate) turn: i64,
+    /// A hash of the pane's screen at the last tick, and when it last
+    /// changed (ms since the epoch).
+    pub(crate) screen: u64,
+    pub(crate) changed: i64,
 }
 
 impl Track {
+    /// Notes the pane's `screen` at `now`; also whether it changed within
+    /// the last moments, which is how a pane shows it still prints.
+    pub(crate) fn observe(mut self, screen: &str, now: i64) -> (Self, bool) {
+        let mut hasher = DefaultHasher::new();
+        screen.hash(&mut hasher);
+        let hash = hasher.finish();
+        if hash != self.screen {
+            self.screen = hash;
+            self.changed = now;
+        }
+        let recent = now.saturating_sub(self.changed) <= RECENT_MS;
+        (self, recent)
+    }
+
     /// The next state, from what its screen shows `now` (ms since the
     /// epoch). `recent` is whether it printed within the last moments: a
     /// working agent between two hints stays working.
@@ -233,6 +259,7 @@ impl Track {
             status,
             since,
             turn,
+            ..self
         }
     }
 }
@@ -304,7 +331,8 @@ mod tests {
             Track {
                 status: Status::Done,
                 since: 30,
-                turn: 1
+                turn: 1,
+                ..Track::default()
             }
         );
         assert_eq!(done.next(Seen::Quiet, false, 40), done);
@@ -316,9 +344,34 @@ mod tests {
             Track {
                 status: Status::Done,
                 since: 60,
-                turn: 2
+                turn: 2,
+                ..Track::default()
             }
         );
+    }
+
+    #[test]
+    fn printing_is_read_off_the_pane_itself() {
+        let (seen, recent) = Track::default().observe("thinking…", 1_000);
+        assert!(recent);
+        // The same screen a moment later still counts as printing...
+        let (seen, recent) = seen.observe("thinking…", 2_500);
+        assert!(recent);
+        // ...but not once it has been still for a while, whatever its
+        // window's other panes print meanwhile.
+        let (seen, recent) = seen.observe("thinking…", 3_500);
+        assert!(!recent);
+        let working = Track {
+            status: Status::Working,
+            ..seen
+        };
+        assert_eq!(
+            working.next(Seen::Quiet, recent, 3_500).status,
+            Status::Done
+        );
+        // A changed screen is printing again.
+        let (_, recent) = seen.observe("done.", 3_600);
+        assert!(recent);
     }
 
     #[test]
