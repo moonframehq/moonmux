@@ -60,9 +60,9 @@ wildcards         = "deny"
 allow-wildcard-paths = true
 
 [sources]
-# Moonframe, pinned by rev in Cargo.toml, and the herdr-gpui crates its
+# Moonframe, following its main in Cargo.toml, and the herdr-gpui crates its
 # `herdr-core` feature builds on (herdr-core-client and what it needs).
-allow-git        = ["https://github.com/penso/herdr-gpui", "https://github.com/penso/moonframe"]
+allow-git        = ["https://github.com/moonframehq/moonframe", "https://github.com/penso/herdr-gpui"]
 allow-registry   = ["https://github.com/rust-lang/crates.io-index"]
 unknown-git      = "deny"
 unknown-registry = "deny"

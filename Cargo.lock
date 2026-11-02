@@ -3489,6 +3489,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09e54e57b4c48b40f7aec75635392b12b3421fa26fe8b4332e63138ed278459c"
 
 [[package]]
+name = "imagesize"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65b27460c2c92b037f3f94c538ed9a3342f3fdf923606781629ccb35f82d042a"
+
+[[package]]
 name = "imgref"
 version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4345,15 +4351,18 @@ dependencies = [
 [[package]]
 name = "moonframe"
 version = "0.1.0"
-source = "git+https://github.com/penso/moonframe?rev=4b2ee50e0f8fed91546001bfbd1ef368c394de5d#4b2ee50e0f8fed91546001bfbd1ef368c394de5d"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#5446287a054c285f05c8f8a84c3cfb7a2e6c2f27"
 dependencies = [
  "block2 0.6.2",
  "futures",
  "gpui-kit",
+ "imagesize 0.15.0",
  "lb-wry",
  "moonframe-acp",
  "moonframe-core",
+ "moonframe-history",
  "moonframe-mux",
+ "moonframe-packages",
  "moonframe-providers",
  "moonframe-store",
  "moonframe-terminal",
@@ -4376,7 +4385,7 @@ dependencies = [
 [[package]]
 name = "moonframe-acp"
 version = "0.1.0"
-source = "git+https://github.com/penso/moonframe?rev=4b2ee50e0f8fed91546001bfbd1ef368c394de5d#4b2ee50e0f8fed91546001bfbd1ef368c394de5d"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#5446287a054c285f05c8f8a84c3cfb7a2e6c2f27"
 dependencies = [
  "agent-client-protocol-schema",
  "moonframe-core",
@@ -4389,7 +4398,7 @@ dependencies = [
 [[package]]
 name = "moonframe-core"
 version = "0.1.0"
-source = "git+https://github.com/penso/moonframe?rev=4b2ee50e0f8fed91546001bfbd1ef368c394de5d#4b2ee50e0f8fed91546001bfbd1ef368c394de5d"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#5446287a054c285f05c8f8a84c3cfb7a2e6c2f27"
 dependencies = [
  "mlua",
  "thiserror 2.0.21",
@@ -4397,9 +4406,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "moonframe-history"
+version = "0.1.0"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#5446287a054c285f05c8f8a84c3cfb7a2e6c2f27"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
 name = "moonframe-mux"
 version = "0.1.0"
-source = "git+https://github.com/penso/moonframe?rev=4b2ee50e0f8fed91546001bfbd1ef368c394de5d#4b2ee50e0f8fed91546001bfbd1ef368c394de5d"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#5446287a054c285f05c8f8a84c3cfb7a2e6c2f27"
 dependencies = [
  "herdr-core-client",
  "moonframe-terminal",
@@ -4408,9 +4425,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "moonframe-packages"
+version = "0.1.0"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#5446287a054c285f05c8f8a84c3cfb7a2e6c2f27"
+dependencies = [
+ "moonframe-core",
+ "moonframe-providers",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml 1.1.8+spec-1.1.0",
+ "tracing",
+ "ureq",
+]
+
+[[package]]
 name = "moonframe-providers"
 version = "0.1.0"
-source = "git+https://github.com/penso/moonframe?rev=4b2ee50e0f8fed91546001bfbd1ef368c394de5d#4b2ee50e0f8fed91546001bfbd1ef368c394de5d"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#5446287a054c285f05c8f8a84c3cfb7a2e6c2f27"
 dependencies = [
  "moonframe-core",
  "serde",
@@ -4424,7 +4456,7 @@ dependencies = [
 [[package]]
 name = "moonframe-store"
 version = "0.1.0"
-source = "git+https://github.com/penso/moonframe?rev=4b2ee50e0f8fed91546001bfbd1ef368c394de5d#4b2ee50e0f8fed91546001bfbd1ef368c394de5d"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#5446287a054c285f05c8f8a84c3cfb7a2e6c2f27"
 dependencies = [
  "moonframe-core",
  "rusqlite",
@@ -4436,10 +4468,11 @@ dependencies = [
 [[package]]
 name = "moonframe-terminal"
 version = "0.1.0"
-source = "git+https://github.com/penso/moonframe?rev=4b2ee50e0f8fed91546001bfbd1ef368c394de5d#4b2ee50e0f8fed91546001bfbd1ef368c394de5d"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#5446287a054c285f05c8f8a84c3cfb7a2e6c2f27"
 dependencies = [
  "alacritty_terminal 0.26.0",
  "portable-pty",
+ "sysinfo 0.39.6",
  "tracing",
 ]
 
@@ -5041,6 +5074,16 @@ dependencies = [
  "block2 0.6.2",
  "libc",
  "objc2 0.6.5",
+ "objc2-core-foundation",
+]
+
+[[package]]
+name = "objc2-io-kit"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33fafba39597d6dc1fb709123dfa8289d39406734be322956a69f0931c73bb15"
+dependencies = [
+ "libc",
  "objc2-core-foundation",
 ]
 
@@ -7336,6 +7379,20 @@ dependencies = [
  "ntapi",
  "rayon",
  "windows 0.57.0",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.39.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2071df9448915b71c4fe6d25deaf1c22f12bd234f01540b77312bb8e41361e6"
+dependencies = [
+ "libc",
+ "memchr",
+ "ntapi",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -9661,7 +9718,7 @@ dependencies = [
  "rand 0.8.8",
  "screencapturekit",
  "screencapturekit-sys",
- "sysinfo",
+ "sysinfo 0.31.4",
  "tao-core-video-sys",
  "windows 0.61.3",
  "windows-capture",

@@ -87,6 +87,11 @@ hooks:
     git config merge.cargo-lock.driver "bash scripts/git/merge-cargo-lock.sh %O %A %B"
     @echo "Hooks, rerere, and the Cargo.lock merge driver are configured."
 
+# Move Cargo.lock to the latest commit on Moonframe's main, then run `just ci`.
+moonframe:
+    cargo update -p moonframe
+    @git diff --stat Cargo.lock
+
 # What changed since the last release tag, straight from git history.
 changelog-unreleased:
     git-cliff --config cliff.toml --unreleased
