@@ -30,9 +30,13 @@ type State = {
 local TITLES = { blocked = "needs you", done = "finished" }
 
 -- A notification's `id` must be 1 to 128 of a-z A-Z 0-9 - _ . : /.
+-- A notification's id for an agent: its address, with what Moonframe does
+-- not allow in an id (tmux's `%` in `default:%3`) turned into `_`. A click
+-- finds the agent back by comparing ids, so the mapping need not reverse.
 local function id_of(address: string): string?
-	if #address <= 128 and string.match(address, "^[%w%-_%.:/]+$") then
-		return address
+	local id = string.gsub(address, "[^%w%-_%.:/]", "_")
+	if #id >= 1 and #id <= 128 then
+		return id
 	end
 	return nil
 end
@@ -104,9 +108,15 @@ end
 
 -- Where a click on the notification for `address` goes, as the sidebar
 -- would on a click of its row.
-local function open(state: State, address: string): { any }
-	local agent = state.known and state.known[address]
-	if not agent then
+local function open(state: State, id: string): { any }
+	local address, agent = nil, nil
+	local known: { [string]: Agent } = state.known or {}
+	for known_address, known_agent in known do
+		if id_of(known_address) == id then
+			address, agent = known_address, known_agent
+		end
+	end
+	if not agent or not address then
 		return {}
 	elseif agent.pane and state.where[agent.pane] then
 		return { { to = "sidebar", msg = { focus = agent.pane, address = address, turn = agent.turn } } }
