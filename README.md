@@ -95,8 +95,10 @@ shortcut, or a colour that isn't in any theme, you can have it:
 Luau runs sandboxed, with no direct access to your files, network or
 processes. A script reaches them only through the operations Herdr's Rust
 providers allow it: the Files panel reads the files it shows, and only the
-mods listed in `app/providers/core/provider.toml` may type into, read or close
-terminals. A script you add can use those operations too, so only add
+mods listed in `app/providers/core/provider.toml` may ask to type into,
+read or close a terminal. That list limits who asks, not who sees: what
+Herdr shares, such as the agents list and an open peek's screen text, any
+mod can read. A script you add can use all of this too, so only add
 scripts you trust. Moonframe's
 [documentation](https://docs.moonframe.dev) covers mods, components and
 styling.
