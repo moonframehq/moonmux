@@ -1,6 +1,7 @@
 -- Moonmux's shell: the sidebar (spaces, then the agents in them and
 -- elsewhere) on the left, the chosen space's tabs and split panes in a card
--- on the right, the Files or Changes panel beside it when shown, a status
+-- on the right (with the Files or Changes panel beside its card, under its
+-- tab strip, when shown: the shell picks which, the workspace draws it), a status
 -- line under all, and the peek sheet over them; over all of them Settings,
 -- the command palette and the Welcome; and the alerts, which draw nothing
 -- but need to know whether the window is active.
@@ -93,7 +94,7 @@ return mod {
 		}
 		return state, {
 			{ to = "workspace", msg = { sidebar = state.left } },
-			{ to = "workspace", msg = { panel = state.panel or false } },
+			{ to = "workspace", msg = { panel = state.panel or false, last = state.last or false } },
 			-- The palette lists what the menus offer.
 			{ to = "palette", msg = { menus = MENUS } },
 		}
@@ -108,7 +109,7 @@ return mod {
 			-- One panel at a time; its own button again hides it.
 			state.panel = if state.panel == msg.panel then nil else msg.panel
 			state.last = state.panel or state.last
-			return state, { { to = "workspace", msg = { panel = state.panel or false } } }
+			return state, { { to = "workspace", msg = { panel = state.panel or false, last = state.last or false } } }
 		end
 		if msg == "toggle-left" then
 			state.left = not state.left
@@ -119,24 +120,11 @@ return mod {
 	end,
 
 	view = function(state: State, app)
-		local panel: string? = state.panel or state.last
 		local body = ui.hsplit {
 			id = "body",
 			divider = false,
 			ui.pane { size = 268, min = 210, max = 420, fixed = true, visible = state.left, class = "side", ui.mount "sidebar" },
 			ui.pane { class = "middle", ui.mount "workspace" },
-			-- Each panel is an instance, so a hidden one sleeps: it neither
-			-- runs nor asks its provider for anything.
-			ui.pane {
-				size = 368,
-				min = 280,
-				max = 900,
-				fixed = true,
-				lazy = true,
-				visible = state.panel ~= nil,
-				surface = "background",
-				panel and ui.mount { panel :: string, id = "right" },
-			},
 		}
 		return ui.column {
 			grow = true,

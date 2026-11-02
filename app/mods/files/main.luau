@@ -1,5 +1,5 @@
 -- The Files panel: the focused pane's folder as a lazy tree, as herdr-app's
--- shows it. The shell mounts it on the right (`files#right`) while shown.
+-- shows it. The workspace mounts it beside its card (`files#right`) while shown.
 --
 -- The folder is the focused pane's (the current tab's active one, from
 -- `topic:moonmux/workspace`): where herdr-core says its shell is, else its
@@ -120,7 +120,7 @@ return mod {
 	subscribe = { "moonmux/workspace", "provider/core" },
 
 	styles = {
-		[".files-frame"] = { padding = { 0, 10, 0, 0 } },
+		[".files-frame"] = { padding = { 0, 0, 0, 10 } },
 		[".files-card"] = {
 			background = "card",
 			radius = 12,
@@ -275,8 +275,6 @@ return mod {
 			grow = true,
 			gap = "none",
 			class = "files-frame",
-			-- Level with the tab strip, which is the window's title bar.
-			ui.row { height = 46, drag = true, shrink = false },
 			ui.column {
 				class = "files-card",
 				grow = true,

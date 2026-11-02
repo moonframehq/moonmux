@@ -44,8 +44,11 @@ type State = {
 	dialog: Dialog?,
 	-- What Settings > Look (mods/settings) chose: { tabs, headers }.
 	layout: any,
-	-- The right-hand panel the shell shows ("files", "changes"), if any.
+	-- The right-hand panel the shell shows ("files", "changes"), if any,
+	-- drawn beside the card under the tab strip; and the last one shown,
+	-- kept drawn while its pane slides away.
 	panel: string?,
+	last: string?,
 	-- The agent each new pane is to start, by pane, until it is sent.
 	starts: { [string]: string }?,
 	-- The backend each pane runs on, by pane: `herdr-core`, `tmux`, or
@@ -527,6 +530,7 @@ return mod {
 			return state
 		elseif msg.panel ~= nil then
 			state.panel = if msg.panel == false then nil else msg.panel
+			state.last = if msg.last then msg.last else state.panel
 			return state
 		elseif msg.tab_index and space then
 			local index = if msg.tab_index < 0 then #space.tabs else msg.tab_index
@@ -834,11 +838,32 @@ return mod {
 			},
 		}
 
+		-- The Files or Changes panel sits beside the card, under the strip,
+		-- so the strip spans the window and its tools stay at the right edge.
+		-- Each panel is an instance, so a hidden one sleeps: it neither runs
+		-- nor asks its provider for anything.
+		local panel: string? = state.panel or state.last
+		local body = ui.hsplit {
+			id = "ws-body",
+			divider = false,
+			ui.pane { ui.column { class = "ws-card", grow = true, gap = "none", content } },
+			ui.pane {
+				size = 368,
+				min = 280,
+				max = 900,
+				fixed = true,
+				lazy = true,
+				visible = state.panel ~= nil,
+				surface = "background",
+				panel and ui.mount { panel :: string, id = "right" },
+			},
+		}
+
 		return ui.column {
 			grow = true,
 			gap = "none",
 			strip,
-			ui.column { class = "ws-card", grow = true, gap = "none", content },
+			body,
 			overlay,
 		}
 	end,

@@ -1,6 +1,6 @@
 -- The Changes panel: the uncommitted changes of the focused pane's
--- repository, as herdr-app's shows them. The shell mounts it on the right
--- (`changes#right`) while shown.
+-- repository, as herdr-app's shows them. The workspace mounts it beside its
+-- card (`changes#right`) while shown.
 --
 -- The folder is the focused pane's (the current tab's active one, from
 -- `topic:moonmux/workspace`): where herdr-core says its shell is, else its
@@ -65,7 +65,7 @@ return mod {
 	subscribe = { "moonmux/workspace", "provider/core" },
 
 	styles = {
-		[".changes-frame"] = { padding = { 0, 10, 0, 0 } },
+		[".changes-frame"] = { padding = { 0, 0, 0, 10 } },
 		[".changes-card"] = {
 			background = "card",
 			radius = 12,
@@ -257,8 +257,6 @@ return mod {
 			grow = true,
 			gap = "none",
 			class = "changes-frame",
-			-- Level with the tab strip, which is the window's title bar.
-			ui.row { height = 46, drag = true, shrink = false },
 			ui.column {
 				class = "changes-card",
 				grow = true,
