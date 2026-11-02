@@ -7,6 +7,10 @@
 //! `moonframe` label (`pane#<id>/term`) which one. A finished terminal of
 //! one of ours says its pane's shell exited. An address is herdr-core's
 //! own (`t7`).
+//!
+//! `hc ls`'s `cwd` is the folder a terminal started in. For this app's own
+//! panes, whose folder the Files and Changes panels follow, each tick also
+//! asks `hc get` where its foreground program is now (`foreground.cwd`).
 
 use {
     super::{Backend, Listing, new_command, tilde},
@@ -154,6 +158,13 @@ impl HerdrCore {
         ms
     }
 
+    /// Where the program in front in `address` is now, from `hc get`; `None`
+    /// when herdr-core cannot say.
+    fn live_cwd(&self, address: &str) -> Option<String> {
+        let got = self.hc_json(&["get", address, "--json"]).ok()?;
+        live_cwd_of(&got).map(str::to_owned)
+    }
+
     /// The live terminals of this app (the label says so; `labels_of`
     /// tells which pane each is).
     fn our_terminals(&self) -> Result<Vec<String>, String> {
@@ -225,9 +236,15 @@ impl Backend for HerdrCore {
             let labels = self.labels_of(&address);
             if text(terminal, "state") == "live" {
                 let since = self.status_ms(terminal);
+                let mut terminal = terminal.clone();
+                if labels.ours
+                    && let Some(cwd) = self.live_cwd(&address)
+                {
+                    terminal["cwd"] = Value::String(cwd);
+                }
                 listing
                     .terminals
-                    .push(entry(terminal, &labels, since, home));
+                    .push(entry(&terminal, &labels, since, home));
             } else if labels.ours && !labels.pane.is_empty() {
                 listing.finished.push(labels.pane);
             }
@@ -373,6 +390,13 @@ fn turn(terminal: &Value) -> i64 {
     terminal.get("turn").and_then(Value::as_i64).unwrap_or(0)
 }
 
+/// The folder `hc get` says the foreground program of a terminal is in.
+fn live_cwd_of(got: &Value) -> Option<&str> {
+    got.pointer("/foreground/cwd")
+        .and_then(Value::as_str)
+        .filter(|cwd| !cwd.is_empty())
+}
+
 /// One terminal as the mods read it; `status_ms` is when it entered its
 /// status.
 fn entry(terminal: &Value, labels: &Labels, status_ms: i64, home: &str) -> Value {
@@ -452,6 +476,17 @@ mod tests {
         let theirs = json!({ "labels": { "moonframe-app": "moonframe-sessions", "moonframe": "pane#p3/term" } });
         assert_eq!(labels_from(&theirs), Labels::default());
         assert_eq!(labels_from(&json!({})), Labels::default());
+    }
+
+    #[test]
+    fn the_live_folder_is_the_foreground_programs() {
+        let got = json!({
+            "cwd": "/home/u/",
+            "foreground": { "cwd": "/home/u/code/app", "name": "zsh" },
+        });
+        assert_eq!(live_cwd_of(&got), Some("/home/u/code/app"));
+        assert_eq!(live_cwd_of(&json!({ "cwd": "/home/u/" })), None);
+        assert_eq!(live_cwd_of(&json!({ "foreground": { "cwd": "" } })), None);
     }
 
     #[test]

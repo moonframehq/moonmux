@@ -752,7 +752,17 @@ return mod {
 				grow = true,
 				gap = "none",
 				head,
-				ui.mount { "pane", id = pane, props = { cwd = space and space.cwd or "~", backend = backends[pane] or "herdr-core" } },
+				-- A click in the terminal makes its pane the active one, so
+				-- Files and Changes follow the terminal being typed in. The
+				-- terminal takes focus on the press and lets the click
+				-- through; the innermost `msg` wins, so the header's own
+				-- buttons are untouched.
+				ui.column {
+					grow = true,
+					gap = "none",
+					msg = if active then nil else { active = pane },
+					ui.mount { "pane", id = pane, props = { cwd = space and space.cwd or "~", backend = backends[pane] or "herdr-core" } },
+				},
 			}
 		end
 
