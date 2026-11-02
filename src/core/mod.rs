@@ -73,7 +73,12 @@ mod tmux;
 use {
     moonframe::{Data, Handle, Native},
     serde_json::{Value, json},
-    std::process::Command,
+    std::{
+        io::{self, Read, Write as _},
+        process::{Command, Output, Stdio},
+        thread,
+        time::{Duration, Instant},
+    },
 };
 
 /// Where this app's releases are, for Settings > Updates.
@@ -528,6 +533,63 @@ pub(crate) fn new_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
     #[cfg(not(windows))]
     let _ = &mut command;
     command
+}
+
+/// `command`'s output, as [`Command::output`] gives it, after writing
+/// `input` to it, unless it runs longer than `deadline`: then it is stopped
+/// and the error is [`io::ErrorKind::TimedOut`]. Its output is read as it
+/// prints, so a full pipe never stalls it.
+pub(crate) fn output_within(
+    command: &mut Command,
+    input: &[u8],
+    deadline: Duration,
+) -> io::Result<Output> {
+    let mut child = command
+        .stdin(if input.is_empty() {
+            Stdio::null()
+        } else {
+            Stdio::piped()
+        })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    if let Some(mut stdin) = child.stdin.take() {
+        let input = input.to_vec();
+        // Dropped once written: the end of input.
+        thread::spawn(move || stdin.write_all(&input));
+    }
+    let stdout = drain(child.stdout.take());
+    let stderr = drain(child.stderr.take());
+    let started = Instant::now();
+    let mut pause = Duration::from_millis(1);
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if started.elapsed() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "timed out"));
+        }
+        thread::sleep(pause);
+        pause = (pause * 2).min(Duration::from_millis(20));
+    };
+    Ok(Output {
+        status,
+        stdout: stdout.join().unwrap_or_default(),
+        stderr: stderr.join().unwrap_or_default(),
+    })
+}
+
+/// Reads all of `pipe` on a thread of its own.
+fn drain(pipe: Option<impl Read + Send + 'static>) -> thread::JoinHandle<Vec<u8>> {
+    thread::spawn(move || {
+        let mut bytes = Vec::new();
+        if let Some(mut pipe) = pipe {
+            let _ = pipe.read_to_end(&mut bytes);
+        }
+        bytes
+    })
 }
 
 /// The mods `[settings] writers` names.

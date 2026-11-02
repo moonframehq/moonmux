@@ -48,6 +48,8 @@ pub(crate) struct Tmux {
     socket_dir: Option<PathBuf>,
     /// The other servers this user runs, looked for now and then.
     others: Vec<String>,
+    /// Whether this run looked for them yet.
+    looked: bool,
     /// What each agent was doing at the last tick, by address.
     tracks: HashMap<String, Track>,
     /// This app's panes seen running in this run: one gone since ended.
@@ -63,6 +65,7 @@ impl Tmux {
             socket: crate::NAME.to_owned(),
             socket_dir: server::socket_dir(),
             others: Vec::new(),
+            looked: false,
             tracks: HashMap::new(),
             seen_panes: HashSet::new(),
         }
@@ -136,17 +139,30 @@ impl Backend for Tmux {
 
     fn list(&mut self, ticks: u64, home: &str) -> Result<Listing, String> {
         let tmux = self.program()?.clone();
-        if (ticks.is_multiple_of(SERVERS_EVERY) || self.others.is_empty())
+        if (ticks.is_multiple_of(SERVERS_EVERY) || !self.looked)
             && let Some(dir) = &self.socket_dir
         {
-            self.others = server::other_servers(dir, &self.socket);
+            self.looked = true;
+            // The cap counts servers that answer: sockets crashed servers
+            // left behind never crowd a live one out.
+            self.others = server::other_servers(dir, &self.socket)
+                .into_iter()
+                .filter(|other| tmux.answers(other))
+                .take(server::MAX_SERVERS)
+                .collect();
         }
         let mut panes = tmux.panes(&self.socket)?;
-        for other in &self.others {
-            // Another server failing (an old tmux, a stale socket) hides only
-            // its own panes.
-            panes.extend(tmux.panes(other).unwrap_or_default());
+        // Another server failing (an old tmux, one that stopped answering)
+        // hides only its own panes, and is not asked again until the next
+        // look for servers.
+        let mut answered = Vec::with_capacity(self.others.len());
+        for other in std::mem::take(&mut self.others) {
+            if let Ok(found) = tmux.panes(&other) {
+                panes.extend(found);
+                answered.push(other);
+            }
         }
+        self.others = answered;
         let processes = Processes::list();
         let now = now_ms();
 

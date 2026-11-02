@@ -6,10 +6,12 @@
 //! picks the server for us.
 
 use {
-    crate::core::new_command,
+    crate::core::{new_command, output_within},
     std::{
+        io,
         path::{Path, PathBuf},
         process::Stdio,
+        time::Duration,
     },
 };
 
@@ -17,7 +19,13 @@ use {
 pub(crate) const DEFAULT: &str = "default";
 /// Servers looked at besides the app's own, at most: each costs a
 /// `list-panes` every tick.
-const MAX_SERVERS: usize = 8;
+pub(crate) const MAX_SERVERS: usize = 8;
+/// Sockets tried when looking for servers, at most: a crashed server
+/// leaves its socket behind, so more are tried than are kept.
+const MAX_SOCKETS: usize = 32;
+/// How long one tmux command may take: a server that stops answering
+/// would otherwise hold up the tick, and every backend's terminals with it.
+const DEADLINE: Duration = Duration::from_secs(2);
 /// What `list-panes` prints for each pane, one field per tab.
 const PANE_FORMAT: &str = "#{pane_id}\t#{session_name}\t#{window_index}\t#{pane_index}\t\
                            #{pane_pid}\t#{pane_current_command}\t#{pane_current_path}\t\
@@ -78,14 +86,18 @@ impl Program {
             .unwrap_or_default()
     }
 
-    /// Runs `tmux -L server args...` and returns what it printed.
+    /// Runs `tmux -L server args...` and returns what it printed. One
+    /// that takes longer than [`DEADLINE`] is stopped and fails.
     pub(crate) fn run(&self, server: &str, args: &[&str]) -> Result<String, Failure> {
-        let output = new_command(&self.path)
-            .args(["-L", server])
-            .args(args)
-            .stdin(Stdio::null())
-            .output()
-            .map_err(|error| Failure::Failed(format!("cannot run tmux: {error}")))?;
+        let mut command = new_command(&self.path);
+        command.args(["-L", server]).args(args);
+        let output = output_within(&mut command, b"", DEADLINE).map_err(|error| {
+            Failure::Failed(if error.kind() == io::ErrorKind::TimedOut {
+                format!("tmux server `{server}` did not answer")
+            } else {
+                format!("cannot run tmux: {error}")
+            })
+        })?;
         if output.status.success() {
             return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
         }
@@ -112,6 +124,13 @@ impl Program {
             Err(Failure::NoServer) => Ok(Vec::new()),
             Err(Failure::Failed(error)) => Err(error),
         }
+    }
+
+    /// Whether a server runs as `server` and answers in time: a socket a
+    /// crashed server left behind does not.
+    pub(crate) fn answers(&self, server: &str) -> bool {
+        self.run(server, &["list-sessions", "-F", "#{session_name}"])
+            .is_ok()
     }
 
     /// The names of the sessions on `server`.
@@ -224,7 +243,8 @@ pub(crate) fn socket_dir() -> Option<PathBuf> {
 }
 
 /// The servers with a socket in `dir`, apart from `ours`, sorted, the
-/// default one first; at most [`MAX_SERVERS`].
+/// default one first; at most [`MAX_SOCKETS`]. Some may not run: the
+/// caller keeps the ones that answer.
 pub(crate) fn other_servers(dir: &Path, ours: &str) -> Vec<String> {
     let mut names: Vec<String> = std::fs::read_dir(dir)
         .into_iter()
@@ -235,7 +255,7 @@ pub(crate) fn other_servers(dir: &Path, ours: &str) -> Vec<String> {
         .filter(|name| name != ours && is_server_name(name))
         .collect();
     names.sort_by_key(|name| (name != DEFAULT, name.clone()));
-    names.truncate(MAX_SERVERS);
+    names.truncate(MAX_SOCKETS);
     names
 }
 
@@ -310,6 +330,25 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(found, vec![DEFAULT.to_owned(), "work".to_owned()]);
         assert!(other_servers(&dir.join("missing"), "x").is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_socket_left_behind_does_not_answer() {
+        let Some(tmux) = Program::find() else {
+            eprintln!("skipped: tmux is not installed");
+            return;
+        };
+        let Some(dir) = socket_dir() else {
+            return;
+        };
+        std::fs::create_dir_all(&dir).unwrap();
+        let name = format!("moonmux-stale-{}", std::process::id());
+        // A socket nothing listens on any more, as a crashed server leaves.
+        drop(std::os::unix::net::UnixListener::bind(dir.join(&name)).unwrap());
+        let answers = tmux.answers(&name);
+        let _ = std::fs::remove_file(dir.join(&name));
+        assert!(!answers);
     }
 
     #[test]

@@ -323,3 +323,18 @@ fn a_start_no_backend_runs_reports_why() {
         Err("pane p3 has no live terminal".into())
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn a_command_past_its_deadline_is_stopped() {
+    let started = Instant::now();
+    let mut slow = new_command("sleep");
+    slow.arg("5");
+    let error = output_within(&mut slow, b"", Duration::from_millis(100)).unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+    assert!(started.elapsed() < Duration::from_secs(2));
+    let mut quick = new_command("cat");
+    let output = output_within(&mut quick, b"hi\n", Duration::from_secs(5)).unwrap();
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"hi\n");
+}
