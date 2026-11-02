@@ -1,4 +1,4 @@
--- The Settings dialog's body: Moonframe's `settings-page` laid out the same
+-- The Settings window's body: Moonframe's `settings-page` laid out the same
 -- way (`settings-nav` on the left, a scrolling page of titled sections of
 -- `settings-row`s), with a footer whose buttons are full size. Moonframe's
 -- component always draws its footer buttons small, and a button's size is
@@ -39,7 +39,7 @@ return component {
 	category = "Layout",
 	icon = "settings",
 	description = "Settings' body: its nav, a scrolling page of titled sections and rows, and a footer with a status and full-size buttons.",
-	when = "The Settings dialog. Anywhere else use Moonframe's `settings-page`.",
+	when = "The Settings window. Anywhere else use Moonframe's `settings-page`.",
 	props = {
 		["nav"] = "props for `settings-nav`: { groups, selected, title, footer }",
 		["title"] = "the page's title",

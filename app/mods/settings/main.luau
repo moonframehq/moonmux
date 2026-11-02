@@ -1,8 +1,9 @@
--- Settings: a dialog over the window with its pages in a nav on the left
--- (Look, Terminals, Machines, Alerts, Updates, Privacy) and Send feedback
--- under them.
+-- Settings: a window of its own (Moonframe's `app:window`) with its pages in
+-- a nav on the left (Look, Terminals, Machines, Alerts, Updates, Privacy)
+-- and Send feedback under them. The shell does not mount it.
 -- ⌘, (File > Settings…), the sidebar's Settings row and the title bar's
--- layout button open it; `{ open = "machines" }` opens it on a page.
+-- layout button send it `"open"` or `{ open = "machines" }`: it goes to the
+-- page and opens its window, or raises it. Done, Escape and ⌘W close it.
 --
 -- Look holds the layout choices (tab style, pane headers, status line),
 -- kept on the topic `moonmux/layout` as { tabs, headers, status }, which the
@@ -25,7 +26,6 @@ local theme_cards = use "theme-cards"
 
 type Layout = { tabs: string, headers: string, status: string }
 type State = {
-	open: boolean,
 	page: string,
 	-- Sounds and notifications when an agent needs you or finishes (on by
 	-- default), and for agents elsewhere too (off by default).
@@ -51,6 +51,8 @@ local PAGES = {
 local TITLES = { look = "Look", terminals = "Terminals", machines = "Machines", alerts = "Alerts", updates = "Updates", privacy = "Privacy" }
 local ADD_MACHINE = "hc machine add <host>"
 local DONE = { label = "Done", msg = "close", variant = "primary" }
+local OPEN_WINDOW: any = { to = "app:window", msg = { open = "settings" } }
+local CLOSE_WINDOW: any = { to = "app:window", msg = { close = "settings" } }
 
 local BACKENDS = { auto = true, ["herdr-core"] = true, tmux = true }
 
@@ -66,9 +68,8 @@ local function announce_alerts(state: State)
 	return { to = "topic:moonmux/alerts", msg = { enabled = state.alerts, elsewhere = state.elsewhere } }
 end
 
--- Opens on `page`, reading the machines again for their page.
-local function show(state: State, page: string)
-	state.open = true
+-- Goes to `page`, reading the machines again for their page.
+local function select(state: State, page: string): (State, { any })
 	state.page = if TITLES[page] then page else "look"
 	state.copied = false
 	state.error = nil
@@ -78,12 +79,22 @@ local function show(state: State, page: string)
 	return state, {}
 end
 
+-- Opens the window on `page`, or raises it there.
+local function show(state: State, page: string): (State, { any })
+	local sends
+	state, sends = select(state, page)
+	table.insert(sends, OPEN_WINDOW)
+	return state, sends
+end
+
 return mod {
 	title = "Settings",
+	window = { size = { width = 860, height = 600 }, min_size = { width = 640, height = 440 } },
 	subscribe = { "moonmux/layout", "moonmux/backend" },
 
 	styles = {
-		[".st-dialog"] = { padding = 0, radius = 12, clip = true, shadow = "large" },
+		-- The page fills the window: no card edge of its own.
+		[".settings-sheet"] = { border = "none", radius = 0 },
 		[".st-note"] = { size = "small", color = "muted-foreground" },
 		[".st-machine"] = { padding = { 10, 0 }, gap = 10, border = "bottom", border_color = "border" },
 		[".st-machine-detail"] = { size = "small", color = "muted-foreground" },
@@ -95,7 +106,6 @@ return mod {
 	init = function(previous: State?): (State, { any })
 		local layout = previous and previous.layout or DEFAULTS
 		local state: State = {
-			open = false,
 			page = previous and previous.page or "look",
 			alerts = if previous then previous.alerts ~= false else true,
 			elsewhere = previous ~= nil and previous.elsewhere == true,
@@ -111,8 +121,7 @@ return mod {
 		if msg == "open" then
 			return show(state, state.page)
 		elseif msg == "close" then
-			state.open = false
-			return state
+			return state, { CLOSE_WINDOW }
 		elseif msg == "toggle-alerts" then
 			state.alerts = not state.alerts
 			return state, { announce_alerts(state) }
@@ -123,13 +132,12 @@ return mod {
 			state.copied = true
 			return state
 		elseif msg == "feedback" then
-			-- Send feedback is the title bar's `?` (Moonframe's feedback mod).
-			state.open = false
-			return state, { { to = "feedback", msg = "open" } }
+			-- Send feedback is the title bar's `?` (Moonframe's feedback mod),
+			-- in the main window.
+			return state, { CLOSE_WINDOW, { to = "feedback", msg = "open" } }
 		elseif msg == "check-updates" then
 			-- Moonframe's updater: it says whether a newer release is out.
-			state.open = false
-			return state, { { to = "app:command", msg = "check-for-updates" } }
+			return state, { CLOSE_WINDOW, { to = "app:command", msg = "check-for-updates" } }
 		elseif msg == "releases" then
 			state.error = nil
 			return state, { { to = "provider:core", msg = { open = "releases" } } }
@@ -162,7 +170,8 @@ return mod {
 		elseif msg.open then
 			return show(state, msg.open)
 		elseif msg.select then
-			return show(state, msg.select)
+			-- The nav, inside the window.
+			return select(state, msg.select)
 		elseif msg.tabs or msg.headers or msg.status then
 			state.layout.tabs = msg.tabs or state.layout.tabs
 			state.layout.headers = msg.headers or state.layout.headers
@@ -406,33 +415,25 @@ return mod {
 			}
 		end
 
-		return ui.overlay {
-			open = state.open,
-			dismiss = "close",
-			backdrop = true,
-			width = 860,
-			class = "st-dialog",
-			content = settings_sheet {
-				height = 600,
-				title = TITLES[state.page],
-				nav = {
-					title = "Settings",
-					selected = state.page,
-					groups = { { items = PAGES } },
-					footer = ui.row {
-						class = "st-feedback",
-						align = "center",
-						msg = "feedback",
-						ui.icon { name = "message-square", size = "small" },
-						ui.text { "Send feedback" },
-					},
+		return settings_sheet {
+			title = TITLES[state.page],
+			nav = {
+				title = "Settings",
+				selected = state.page,
+				groups = { { items = PAGES } },
+				footer = ui.row {
+					class = "st-feedback",
+					align = "center",
+					msg = "feedback",
+					ui.icon { name = "message-square", size = "small" },
+					ui.text { "Send feedback" },
 				},
-				sections = sections,
-				status = "Changes apply at once.",
-				buttons = if state.page == "look"
-					then { { label = "Reset layout", msg = "reset-layout" }, DONE }
-					else { DONE },
 			},
+			sections = sections,
+			status = "Changes apply at once.",
+			buttons = if state.page == "look"
+				then { { label = "Reset layout", msg = "reset-layout" }, DONE }
+				else { DONE },
 		}
 	end,
 }
