@@ -23,7 +23,7 @@ body = """
 header = """
 # Changelog
 
-All notable changes to Herdr on Moonframe, generated from git history at release time.
+All notable changes to Moonmux, generated from git history at release time.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Release tags follow `v<major>.<minor>.<patch>`.

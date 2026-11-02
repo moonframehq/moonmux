@@ -13,6 +13,6 @@ trap 'rm -rf -- "$stage"' EXIT
 # ditto keeps the bundle's signature, symlinks and extended attributes.
 ditto "$app" "$stage/$(basename "$app")"
 ln -s /Applications "$stage/Applications"
-hdiutil create -quiet -volname Herdr -srcfolder "$stage" -fs HFS+ -format UDZO "$dmg"
+hdiutil create -quiet -volname Moonmux -srcfolder "$stage" -fs HFS+ -format UDZO "$dmg"
 hdiutil verify -quiet "$dmg"
 echo "$dmg"

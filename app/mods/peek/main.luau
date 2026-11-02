@@ -1,7 +1,8 @@
 -- Peek: a sheet over the window showing another terminal's screen, from
--- herdr-core (`hc read`, through `provider:core`'s `watch`), with a line to
--- send it text and buttons for the keys an agent asks for (Enter, Esc, an
--- interrupt). Opened with `{ open = "t7" }` from the sidebar.
+-- herdr-core (`hc read`) or tmux (`capture-pane`), through
+-- `provider:core`'s `watch`, with a line to send it text and buttons for
+-- the keys an agent asks for (Enter, Esc, an interrupt). Opened with
+-- `{ open = "t7" }` (or a tmux pane, `default:%12`) from the sidebar.
 
 local icon_button = use "icon-button"
 local status_dot = use "status-dot"
@@ -82,7 +83,7 @@ return mod {
 					ui.column {
 						grow = true,
 						gap = "none",
-						ui.text { if terminal then `{terminal.agent} · {terminal.address}` else (state.address or ""), weight = "semibold", truncate = true },
+						ui.text { if terminal then `{terminal.agent} · {terminal.backend} {terminal.target}` else (state.address or ""), weight = "semibold", truncate = true },
 						ui.text { if terminal then terminal.cwd else "This terminal has ended", tone = "muted", size = "small", truncate = true },
 					},
 					terminal and status_dot { status = status, chip = true },

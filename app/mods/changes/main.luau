@@ -3,7 +3,7 @@
 -- (`changes#right`) while shown.
 --
 -- The folder is the focused pane's (the current tab's active one, from
--- `topic:herdr/workspace`): where herdr-core says its shell is, else its
+-- `topic:moonmux/workspace`): where herdr-core says its shell is, else its
 -- space's folder. The `changes` provider (src/changes.rs) reads its
 -- repository, the chosen file's diff, and commits, answering here.
 
@@ -62,7 +62,7 @@ end
 
 return mod {
 	title = "Changes",
-	subscribe = { "herdr/workspace", "provider/core" },
+	subscribe = { "moonmux/workspace", "provider/core" },
 
 	styles = {
 		[".changes-frame"] = { padding = { 0, 10, 0, 0 } },
@@ -115,7 +115,7 @@ return mod {
 		if type(msg) ~= "table" then
 			return nil
 		end
-		if msg.topic == "herdr/workspace" then
+		if msg.topic == "moonmux/workspace" then
 			state.focus = msg.value and msg.value.focus
 			return state, refollow(state)
 		elseif msg.topic == "provider/core" then

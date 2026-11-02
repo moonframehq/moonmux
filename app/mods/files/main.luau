@@ -2,7 +2,7 @@
 -- shows it. The shell mounts it on the right (`files#right`) while shown.
 --
 -- The folder is the focused pane's (the current tab's active one, from
--- `topic:herdr/workspace`): where herdr-core says its shell is, else its
+-- `topic:moonmux/workspace`): where herdr-core says its shell is, else its
 -- space's folder. The `folder` provider (src/folder.rs) lists it and each
 -- open folder, marks git's changes, and reads a file for the preview sheet,
 -- answering here.
@@ -117,7 +117,7 @@ end
 
 return mod {
 	title = "Files",
-	subscribe = { "herdr/workspace", "provider/core" },
+	subscribe = { "moonmux/workspace", "provider/core" },
 
 	styles = {
 		[".files-frame"] = { padding = { 0, 10, 0, 0 } },
@@ -163,7 +163,7 @@ return mod {
 			end
 			return nil
 		end
-		if msg.topic == "herdr/workspace" then
+		if msg.topic == "moonmux/workspace" then
 			state.focus = msg.value and msg.value.focus
 			return state, refollow(state)
 		elseif msg.topic == "provider/core" then

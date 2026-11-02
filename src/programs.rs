@@ -120,6 +120,18 @@ pub(crate) fn program_of(agent: &str) -> (&'static str, String) {
     ("", agent.to_owned())
 }
 
+/// The key of the coding agent that runs under `name` (`claude-code` is
+/// `claude`, `kiro-cli` is `kiro`): how the tmux backend finds agents among
+/// processes, and the name the views draw its icon by.
+#[cfg(feature = "tmux")]
+pub(crate) fn agent_named(name: &str) -> Option<&'static str> {
+    STARTABLE
+        .iter()
+        .chain(KNOWN)
+        .find(|program| program.matches.contains(&name))
+        .map(|program| program.key)
+}
+
 /// Where `name` is: on `path` (a `PATH` value), else in the usual folders
 /// under `home`, else in the package managers' folders. On Windows only on
 /// `path`: an app there gets the user's whole `PATH`, and the shell finds
@@ -248,10 +260,8 @@ mod tests {
     }
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "herdr-moonframe-programs-{name}-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("moonmux-programs-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
@@ -280,6 +290,23 @@ mod tests {
         assert_eq!(program_of("zsh"), ("shell", "zsh".into()));
         assert_eq!(program_of("htop"), ("", "htop".into()));
         assert_eq!(program_of(""), ("", String::new()));
+    }
+
+    #[cfg(feature = "tmux")]
+    #[test]
+    fn an_agent_found_by_any_of_its_names_is_named_by_its_key() {
+        assert_eq!(agent_named("claude"), Some("claude"));
+        assert_eq!(agent_named("claude-code"), Some("claude"));
+        assert_eq!(agent_named("cursor-agent"), Some("cursor"));
+        assert_eq!(agent_named("github-copilot"), Some("copilot"));
+        assert_eq!(agent_named("grok-build"), Some("grok"));
+        assert_eq!(agent_named("kiro-cli"), Some("kiro"));
+        assert_eq!(agent_named("zsh"), None);
+        for program in STARTABLE.iter().chain(KNOWN) {
+            for name in program.matches {
+                assert_eq!(agent_named(name), Some(program.key), "{name}");
+            }
+        }
     }
 
     #[test]

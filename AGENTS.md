@@ -17,39 +17,65 @@ Engineering guidance for agents working in this repository. Read this alongside
 
 ## Architecture
 
-herdr-moonframe is Herdr (a desktop app for terminals and coding agents, like
-herdr-app) built on the Moonframe library. herdr-core (`hc`) owns every
-terminal process; this app arranges them and shows the agents. Closing the
-window must leave herdr-core and its terminals running.
+Moonmux is a desktop app for terminals and coding agents (like herdr-app),
+built on the Moonframe library. Its name (`NAME` in `src/main.rs`) is the
+label on its herdr-core terminals, its tmux server (`tmux -L moonmux`), its
+config and cache folders and its saved workspace: changing it, or the app
+id (`dev.penso.moonmux`), orphans users' running panes and loses their
+spaces, so a rename needs a migration (`src/migrate.rs` brings along
+the former `herdr-moonframe`). A backend owns every terminal
+process, herdr-core (`hc`) or tmux; this app arranges them and shows the
+agents. Closing the window must leave the backends and their terminals
+running.
+
+Each backend is a cargo feature, both on by default: `herdr-core` (which
+turns on Moonframe's `herdr-core` feature) and `tmux` (Moonframe's tmux
+backend needs no feature). The app must build, pass clippy and pass its
+tests with either alone and with both; `just features` and CI check that.
 
 | Location | Responsibility |
 | --- | --- |
-| `src/main.rs` | `Moonframe::new("herdr-moonframe")`: `app/` read live from the checkout, else compiled in (`AppFiles`) |
-| `src/core.rs` | The `core` native provider (`app.core`): `hc ls` each second, labels via `hc get`, a peek (`hc read`), machines (`hc machine ls`), actions (send, keys, interrupt, kill, close_panes), and opening the releases page; `new_command` for every child process |
+| `src/main.rs` | `Moonframe::new("moonmux")`: `app/` read live from the checkout, else compiled in (`AppFiles`) |
+| `src/migrate.rs` | Before the window opens, moves what the app kept as `herdr-moonframe` (its folders, its herdr-core document, its terminals' label) to `NAME`, once, never over anything saved under it |
+| `src/core/mod.rs` | The `core` native provider (`app.core`): each second, the terminals of every backend built in and installed, behind the `Backend` trait; which backend Auto picks; routing a peek and actions (send, keys, interrupt, close_panes, start) to the backend whose address they name; opening the releases page; `new_command` for every child process |
+| `src/core/herdr.rs` | The herdr-core backend (`herdr-core` feature): `hc ls`, labels via `hc get`, a peek (`hc read`), machines (`hc machine ls`), `hc kill` and `hc label` |
+| `src/core/tmux/` | The tmux backend (`tmux` feature): panes of the app's own server (`tmux -L moonmux`) and the user's other servers (`server.rs`), agents found under each pane's shell and read off its screen (`agents.rs`) |
 | `app/main.luau` | The shell: sidebar, workspace card, status line, peek sheet; menus and their shortcuts |
-| `app/mods/workspace` | Spaces, their tabs, and each tab's tree of split panes, all in its state; the tab strip is the title bar. Publishes `topic:herdr/workspace` |
-| `app/mods/pane` | One instance per pane (`pane#p3`), each owning one terminal (`pane#p3/term`) |
+| `app/mods/workspace` | Spaces, their tabs, and each tab's tree of split panes, all in its state, with the backend each pane runs on; the tab strip is the title bar. Publishes `topic:moonmux/workspace` |
+| `app/mods/pane` | One instance per pane (`pane#p3`), each owning one terminal (`pane#p3/term`) on the backend the workspace gives it |
 | `app/mods/sidebar` | Spaces, then agents in our panes, then agents elsewhere |
 | `app/mods/peek`, `app/mods/statusbar` | The peek sheet and the status line |
-| `app/mods/settings` | The Settings dialog (⌘,): Look (appearance and a light and a dark theme, through `app:appearance` and `app:theme`, and the layout choices it publishes on `topic:herdr/layout`), Machines, Alerts (its switches on `topic:herdr/alerts`), Updates, Privacy |
+| `app/mods/settings` | The Settings dialog (⌘,): Look (appearance and a light and a dark theme, through `app:appearance` and `app:theme`, and the layout choices it publishes on `topic:moonmux/layout`), Terminals (the backend new panes run on, on `topic:moonmux/backend`), Machines, Alerts (its switches on `topic:moonmux/alerts`), Updates, Privacy |
 | `app/mods/alerts` | No region; the shell mounts it with `{ active = app.window.active }`. A sound (`app:sound`) and a notification (`app:notify`) when an agent turns to needs you or done unseen; a click (`app/notification`) goes to it |
-| `app/mods/palette`, `app/mods/welcome` | The command palette (⌘⇧P), fed the shell's menus (app commands run through `app:command`); the first-launch Welcome (Help > Welcome to Herdr) |
+| `app/mods/palette`, `app/mods/welcome` | The command palette (⌘⇧P), fed the shell's menus (app commands run through `app:command`); the first-launch Welcome (Help > Welcome to Moonmux) |
 | `app/components` | The app's own components (`appearance`, shared by Settings and Welcome; `theme-cards`, Settings > Look's picker) |
 | `app/style.luau` | The look, merged over Moonframe's stylesheet |
 | `scripts/release`, `.github/workflows` | Packaging, signing and releasing (`docs/releasing.md`) |
 
 - **Layout and look live in Luau.** Change `app/` for anything on screen; it
-  reloads live. Add Rust only for what Luau can't do (talking to herdr-core).
+  reloads live. Add Rust only for what Luau can't do (talking to herdr-core
+  or tmux).
 - **Which pane runs which agent:** Moonframe labels each terminal it starts in
-  herdr-core with `moonframe-app=herdr-moonframe` and `moonframe=<owner>/<id>`.
-  Because every pane is its own `pane` instance, the owner is `pane#<id>`, and
-  `core.rs` (`pane_of`) reads the pane id back. Keep the mod name `pane`, its
-  terminal id `term`, and `PANE_MOD` in step.
+  herdr-core with `moonframe-app=moonmux` and `moonframe=<owner>/<id>`,
+  and names each tmux session after the key (`pane#p3/term` is
+  `pane_p3+term`, with a `~hash` on newer Moonframes) on the server
+  `tmux -L moonmux`. Because every pane is its own `pane` instance,
+  the owner is `pane#<id>`, and each backend's `pane_of` reads the pane id
+  back. Keep the mod name `pane`, its terminal id `term`, `PANE_MOD` and
+  `PANE_SESSION_PREFIX` in step.
+- **Which backend a pane runs on:** the workspace picks it when the pane
+  opens (Settings > Terminals: Auto, herdr-core or tmux; Auto is herdr-core
+  when `hc` is installed, else tmux) and keeps it for the pane's life, since
+  Moonframe ignores a `backend` change once a terminal is open. A change of
+  choice applies to new panes only.
 - **The provider's contract:** what `Core::snapshot` publishes is `app.core`;
-  what `Core::receive` takes is what mods send `provider:core`. Change both
-  sides together, and the doc comment at the top of `core.rs`.
+  what `Core::receive` takes is what mods send `provider:core`. Both
+  backends fill in the same terminal fields (`address`, `target`,
+  `backend`, ...). Change both sides together, and the doc comment at the
+  top of `src/core/mod.rs`.
 - **Who may act on terminals:** `provider:core`'s actions reach any terminal
-  in herdr-core (a peek answers agents elsewhere), so only the mods in
+  in herdr-core and any pane of the user's tmux servers (a peek answers
+  agents elsewhere), so only the mods in
   `app/providers/core/provider.toml`'s `[settings] writers` may send them.
   A new mod that acts goes in that list; never widen it to everyone.
 - Moonframe caps terminals at 8 per mod (one instance is one owner) and 32 per
@@ -64,7 +90,7 @@ window must leave herdr-core and its terminals running.
 
 - Do not assert hard-coded totals for lists that grow. Compare against the
   source list, or assert uniqueness or membership.
-- Keep lists whose order carries no meaning (such as `AGENTS` in `core.rs`)
+- Keep lists whose order carries no meaning (such as `AGENTS` in `src/core/herdr.rs`)
   sorted between `// keep-sorted start` and `// keep-sorted end` markers.
   `just check-sorted` (part of `just ci`) enforces them and `just sort` fixes
   them. Never mark a list whose order is shown to users.
@@ -80,7 +106,7 @@ window must leave herdr-core and its terminals running.
   `.claude/skills/moonframe-components`) and prefer an existing component.
 - State and messages are plain data. Reset transient keys (dialogs, errors)
   in `init`.
-- Keep each mod's reads of `app.core` narrow, and keep `core.rs`'s output
+- Keep each mod's reads of `app.core` narrow, and keep `app.core`'s output
   stable: it publishes only when something changed.
 - `just check` loads every module headlessly; `just types` type-checks them
   in strict mode. Both run in `just ci`.
@@ -95,10 +121,12 @@ window must leave herdr-core and its terminals running.
 - Start child processes with `core::new_command`, never `Command::new`
   (clippy rejects it): on Windows a console child opens a window otherwise.
 - Never block the UI thread. Native providers run on their own thread; keep
-  `hc` calls there.
-- Treat terminal content and herdr-core's output as untrusted data.
+  `hc` and `tmux` calls there.
+- Treat terminal content, screens, and herdr-core's and tmux's output as
+  untrusted data.
 - Moonframe is pinned by `rev`, with only the features this app uses (`acp`
-  for Send feedback, `alacritty`, `herdr-core`, `tokio`). Moving it is a
+  for Send feedback, `alacritty`, `tokio`, and `herdr-core` through the
+  feature of that name). Moving it is a
   manual, tested change; Dependabot ignores it.
 - Avoid unrelated lockfile upgrades. Use `--locked` for reproducible checks.
 
@@ -138,7 +166,8 @@ just ci
   release scripts change, run `just release-check` (actionlint, zizmor, shell
   syntax), and `just package-macos` for packaging changes.
 - For visual changes, run `just run` and look at the window. Never kill a
-  window or herdr-core you did not start; stop only your own PID.
+  window, herdr-core or tmux server you did not start; stop only your own
+  PID. Try each backend: Settings > Terminals, then open a new pane.
 - Documentation-only changes need command, path and link review and
   `git diff --check`; do not claim a test run that did not happen.
 

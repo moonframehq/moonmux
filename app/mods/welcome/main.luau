@@ -1,5 +1,5 @@
 -- Welcome: a short tour on first launch (then remembered in its state,
--- which Moonframe saves), reopened from Help > Welcome to Herdr. Four
+-- which Moonframe saves), reopened from Help > Welcome to Moonmux. Four
 -- pages, with Appearance on the first, page dots, Back, Next and Done;
 -- ← → and Enter move through it.
 
@@ -11,8 +11,8 @@ type State = { seen: boolean, open: boolean, page: number }
 local PAGES = {
 	{
 		icon = "terminal",
-		title = "Herdr runs your terminals in the background",
-		text = "The terminals and agents you open here don't live in this window. They run in herdr-core, a small background program on your computer. Close Herdr, update it, or let it crash, and your agents keep working. Open it again and everything is where you left it, as long as the computer is on.",
+		title = "Moonmux runs your terminals in the background",
+		text = "The terminals and agents you open here don't live in this window. They run in herdr-core, a small background program on your computer, or in tmux when herdr-core isn't installed. Close Moonmux, update it, or let it crash, and your agents keep working. Open it again and everything is where you left it, as long as the computer is on.",
 	},
 	{
 		icon = "bot",
@@ -22,7 +22,7 @@ local PAGES = {
 	{
 		icon = "messages-square",
 		title = "Agents can start helpers",
-		text = "When an agent starts a helper in herdr-core, it shows in the sidebar under Elsewhere, with agents started outside Herdr. Click one to peek at it and answer it.",
+		text = "When an agent starts a helper in herdr-core, it shows in the sidebar under Elsewhere, with agents started outside Moonmux. Click one to peek at it and answer it.",
 	},
 	{
 		icon = "layers",
@@ -74,7 +74,7 @@ return mod {
 		}
 		return onboarding {
 			open = state.open,
-			title = "Welcome to Herdr",
+			title = "Welcome to Moonmux",
 			icon = "sparkles",
 			badge = "BETA",
 			pages = pages,

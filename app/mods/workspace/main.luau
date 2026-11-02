@@ -5,10 +5,20 @@
 -- A space holds work in one folder. A tab's `layout` is a tree: a leaf is
 -- `{ pane = "p3" }`, a split is `{ id = "x4", dir = "row" | "column",
 -- children = { ... } }`. Each pane is an instance of the `pane` mod with a
--- shell of its own in herdr-core; closing a pane ends its shell
+-- shell of its own in herdr-core or tmux; closing a pane ends its shell
 -- (`provider:core`'s `close_panes`), closing the window does not.
 --
--- After each change it publishes `topic:herdr/workspace` (the spaces, their
+-- Which backend a pane runs on is chosen when it opens and kept for its
+-- life, across launches, in `backends`: the choice in Settings > Terminals
+-- (`topic:moonmux/backend`), Auto meaning what `app.core.backends.auto` says
+-- (herdr-core when installed, else tmux). Changing the choice applies to
+-- panes opened after it; open panes keep theirs, as Moonframe keeps a
+-- terminal on the backend it opened on. Once `app.core` lists a pane's
+-- shell, `backends` follows where it really runs (Moonframe falls back to
+-- another backend when the one asked for is missing), so the next launch
+-- reattaches it there rather than starting a second shell elsewhere.
+--
+-- After each change it publishes `topic:moonmux/workspace` (the spaces, their
 -- panes, which pane shows where) for the sidebar, and the focused pane with
 -- its space's folder for the Files and Changes panels.
 --
@@ -38,6 +48,15 @@ type State = {
 	panel: string?,
 	-- The agent each new pane is to start, by pane, until it is sent.
 	starts: { [string]: string }?,
+	-- The backend each pane runs on, by pane: `herdr-core`, `tmux`, or
+	-- `auto` until `app.core` shows it. A pane missing here predates the
+	-- choice and opened on herdr-core.
+	backends: { [string]: string }?,
+	-- Settings > Terminals' choice: `auto`, `herdr-core` or `tmux`.
+	backend: string?,
+	-- From `app.core.backends`: Auto's backend, and the installed ones.
+	auto: string?,
+	installed: { string }?,
 }
 
 -- How loud a status is, for a tab or space showing its loudest agent.
@@ -48,8 +67,28 @@ local function fresh_id(state: State, prefix: string): string
 	return `{prefix}{state.next}`
 end
 
-local function new_tab(state: State, cwd: string): Tab
+-- The backend a pane opened now runs on: the choice when it is installed,
+-- else Auto's; `auto` (Moonframe's own pick, the same) before `app.core`
+-- has said.
+local function chosen_backend(state: State): string
+	local choice = state.backend or "auto"
+	if choice ~= "auto" and table.find(state.installed or {}, choice) then
+		return choice
+	end
+	return if state.auto and state.auto ~= "" then state.auto else "auto"
+end
+
+-- A new pane's id, with its backend kept.
+local function new_pane(state: State): string
 	local pane = fresh_id(state, "p")
+	local backends = state.backends or {}
+	backends[pane] = chosen_backend(state)
+	state.backends = backends
+	return pane
+end
+
+local function new_tab(state: State, cwd: string): Tab
+	local pane = new_pane(state)
 	return { id = fresh_id(state, "t"), name = "", layout = { pane = pane }, active = pane }
 end
 
@@ -216,13 +255,62 @@ local function summary(state: State)
 	local tab = current_tab(state)
 	local focus = if space and tab then { pane = tab.active, cwd = space.cwd } else nil
 	return {
-		to = "topic:herdr/workspace",
+		to = "topic:moonmux/workspace",
 		msg = { space = state.space, spaces = spaces, visible = visible, where = where, focus = focus },
 	}
 end
 
--- Puts `sends` after the summary: every change ends here.
+-- Follows `core` (app.core) for where our panes' shells run: a pane whose
+-- kept backend has no shell of it, but another backend has one, moves to
+-- that one. Says whether anything changed.
+local function follow_backends(state: State, core: any): boolean
+	local moved = false
+	local found: { [string]: { string } } = {}
+	for _, terminal in (core and core.terminals) or {} do
+		if terminal.ours and terminal.pane ~= "" and terminal.backend then
+			found[terminal.pane] = found[terminal.pane] or {}
+			table.insert(found[terminal.pane], terminal.backend)
+		end
+	end
+	local backends = state.backends or {}
+	for pane, runs_on in found do
+		if not table.find(runs_on, backends[pane] or "herdr-core") then
+			backends[pane] = runs_on[1]
+			moved = true
+		end
+	end
+	state.backends = backends
+	local list = (core and core.backends and core.backends.list) or {}
+	local installed = {}
+	for _, backend in list do
+		if backend.installed then
+			table.insert(installed, backend.id)
+		end
+	end
+	local auto = (core and core.backends and core.backends.auto) or ""
+	if auto ~= state.auto or table.concat(installed, ",") ~= table.concat(state.installed or {}, ",") then
+		state.auto, state.installed = auto, installed
+		moved = true
+	end
+	return moved
+end
+
+-- Puts `sends` after the summary: every change ends here. Forgets the
+-- backends of panes no longer open.
 local function changed(state: State, sends: { any }?)
+	local open = {}
+	for _, space in state.spaces do
+		for _, tab in space.tabs do
+			panes_of(tab.layout, open)
+		end
+	end
+	local backends: { [string]: string } = state.backends or {}
+	for pane in backends do
+		if not table.find(open, pane) then
+			backends[pane] = nil
+		end
+	end
+	state.backends = backends
 	local all = { summary(state) }
 	local extra: { any } = sends or {}
 	for _, send in extra do
@@ -297,7 +385,7 @@ end
 
 return mod {
 	title = "Workspace",
-	subscribe = { "herdr/layout", "provider/core" },
+	subscribe = { "moonmux/layout", "moonmux/backend", "provider/core" },
 
 	styles = {
 		[".ws-strip"] = { padding = { 0, 10, 0, 12 }, gap = 4 },
@@ -330,6 +418,7 @@ return mod {
 		[".ws-pane-name:active"] = { color = "foreground" },
 		[".ws-pane-title"] = { size = "small", color = "muted-foreground" },
 		[".ws-pane-icon"] = { color = "muted-foreground" },
+		[".ws-pane-backend"] = { size = "small", color = "muted-foreground", padding = { 0, 6 }, radius = 5, background = "list-hover" },
 		[".ws-field"] = { gap = 4 },
 		[".ws-dialog"] = { background = "card", radius = 14, padding = 18, gap = 14, shadow = "large" },
 	},
@@ -339,9 +428,10 @@ return mod {
 			previous.dialog = nil
 			previous.sidebar = previous.sidebar ~= false
 			previous.starts = previous.starts or {}
+			previous.backends = previous.backends or {}
 			return previous, { summary(previous) }
 		end
-		local state: State = { spaces = {}, space = "", next = 0, sidebar = true, dialog = nil, layout = nil, starts = {} }
+		local state: State = { spaces = {}, space = "", next = 0, sidebar = true, dialog = nil, layout = nil, starts = {}, backends = {} }
 		local first = new_space(state, "", "~")
 		state.spaces = { first }
 		state.space = first.id
@@ -357,7 +447,7 @@ return mod {
 				table.insert(space.tabs, made)
 				space.tab = made.id
 			elseif (msg == "split-right" or msg == "split-down") and tab then
-				local pane = fresh_id(state, "p")
+				local pane = new_pane(state)
 				tab.layout = split(state, tab.layout, tab.active, if msg == "split-right" then "row" else "column", pane)
 				tab.active = pane
 			elseif msg == "close-pane" and space and tab then
@@ -404,15 +494,19 @@ return mod {
 		if type(msg) ~= "table" then
 			return
 		end
-		if msg.topic == "herdr/layout" then
+		if msg.topic == "moonmux/layout" then
 			state.layout = msg.value
 			return state
+		elseif msg.topic == "moonmux/backend" then
+			state.backend = (msg.value and msg.value.choice) or "auto"
+			return state
 		elseif msg.topic == "provider/core" then
+			local moved = follow_backends(state, msg.value)
 			local sends = start_sends(state, msg.value)
-			if not sends then
+			if not sends and not moved then
 				return
 			end
-			return state, sends
+			return state, sends or {}
 		elseif msg.start_agent and space then
 			-- A tab for the agent, in the current space; its pane starts it
 			-- once its shell is up (see start_sends).
@@ -488,7 +582,7 @@ return mod {
 		elseif msg.active and tab then
 			tab.active = msg.active
 		elseif msg.split and tab then
-			local pane = fresh_id(state, "p")
+			local pane = new_pane(state)
 			tab.layout = split(state, tab.layout, msg.split, msg.dir or "row", pane)
 			tab.active = pane
 		elseif msg.close and space and tab then
@@ -510,8 +604,9 @@ return mod {
 			else "ws-tab"
 		local headers = layout.headers or "always"
 		local starts = state.starts or {}
+		local backends = state.backends or {}
 
-		-- What herdr-core says runs in each of our panes, and which panes'
+		-- What `app.core` says runs in each of our panes, and which panes'
 		-- shells exited.
 		local ended = {}
 		for _, pane in (app.core and app.core.ended) or {} do
@@ -525,7 +620,7 @@ return mod {
 		end
 
 		-- The key of the program a pane shows (its icon), and its name:
-		-- the agent it is about to start, else what herdr-core says runs.
+		-- the agent it is about to start, else what `app.core` says runs.
 		local function program_of(pane: string): (string, string)
 			local terminal = by_pane[pane]
 			local starting = starts[pane]
@@ -626,6 +721,7 @@ return mod {
 			local terminal = by_pane[pane]
 			local show_head = headers == "always" or (headers == "split" and many)
 			local key, name = program_of(pane)
+			local runs_on = if terminal and terminal.backend then terminal.backend else (backends[pane] or "herdr-core")
 			-- As herdr-app: the program's icon and name, then the live folder.
 			local folder = if terminal then terminal.cwd
 				elseif ended[pane] then "The shell exited: click the pane and press Enter"
@@ -636,11 +732,18 @@ return mod {
 				align = "center",
 				shrink = false,
 				msg = { active = pane },
-				tooltip = terminal and terminal.address,
+				tooltip = terminal and `{terminal.backend} {terminal.target}`,
 				ui.row { class = "ws-pane-icon", shrink = false, program_icon { program = key, agent = terminal and terminal.is_agent, dark = app.dark, size = "small" } },
 				name ~= "" and ui.row { max_width = 260, shrink = false, ui.text { name, class = "ws-pane-name", state = if active then "active" else "rest", truncate = true } },
 				ui.row { grow = true, ui.text { folder, class = "ws-pane-title", truncate = true } },
 				terminal and terminal.status ~= "" and status_dot { status = terminal.status, size = "small" },
+				-- The backend its shell runs on.
+				runs_on ~= "auto" and ui.row {
+					class = "ws-pane-backend",
+					shrink = false,
+					tooltip = `Its shell runs on {runs_on}. Settings › Terminals picks where new panes run.`,
+					ui.text { runs_on },
+				},
 				icon_button { icon = "columns-2", size = "small", tooltip = "Split right", msg = { split = pane, dir = "row" } },
 				icon_button { icon = "rows-2", size = "small", tooltip = "Split down", msg = { split = pane, dir = "column" } },
 				icon_button { icon = "close", size = "small", tooltip = "Close pane", msg = { close = pane } },
@@ -649,7 +752,7 @@ return mod {
 				grow = true,
 				gap = "none",
 				head,
-				ui.mount { "pane", id = pane, props = { cwd = space and space.cwd or "~" } },
+				ui.mount { "pane", id = pane, props = { cwd = space and space.cwd or "~", backend = backends[pane] or "herdr-core" } },
 			}
 		end
 

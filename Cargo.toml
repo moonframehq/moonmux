@@ -1,10 +1,10 @@
 [package]
-description  = "Herdr on Moonframe: spaces, tabs and panes of terminals kept by herdr-core, and the agents in them"
+description  = "Moonmux: spaces, tabs and panes of terminals kept by herdr-core or tmux, and the agents in them"
 edition      = "2024"
 license      = "MIT"
-name         = "herdr-moonframe"
+name         = "moonmux"
 publish      = false
-repository   = "https://github.com/penso/herdr-moonframe"
+repository   = "https://github.com/moonframehq/moonmux"
 rust-version = "1.99"
 version      = "0.1.0"
 
@@ -18,13 +18,21 @@ unwrap_used = "deny"
 
 [dependencies]
 # The window, laid out by app/ in Luau, with its terminals kept by
-# herdr-core (`herdr-core`). Pinned to one commit of the public repository;
+# herdr-core or tmux (see [features]). Pinned to one commit of the public repository;
 # to work on both, patch it to a checkout:
 #   [patch."https://github.com/penso/moonframe"]
 #   moonframe = { path = "../moonframe/crates/moonframe" }
-moonframe  = { default-features = false, features = ["acp", "alacritty", "herdr-core", "tokio"], git = "https://github.com/penso/moonframe", rev = "4b2ee50e0f8fed91546001bfbd1ef368c394de5d" }
+moonframe  = { default-features = false, features = ["acp", "alacritty", "tokio"], git = "https://github.com/penso/moonframe", rev = "4b2ee50e0f8fed91546001bfbd1ef368c394de5d" }
 serde_json = "1"
 tracing    = "0.1"
+
+[features]
+default = ["herdr-core", "tmux"]
+# Terminals kept by herdr-core (`hc`), and its machines.
+herdr-core = ["moonframe/herdr-core"]
+# Terminals kept by tmux, on the app's own server, and the agents in the
+# user's other tmux servers. Moonframe's tmux backend needs no feature.
+tmux = []
 
 [profile.dev.package."*"]
 # GPUI and Luau are unusably slow unoptimised; keep our own crate

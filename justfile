@@ -1,7 +1,7 @@
 default:
     @just --list
 
-# Open Herdr: spaces of terminals kept by herdr-core, and the agents in them.
+# Open Moonmux: spaces of terminals kept by herdr-core or tmux, and the agents in them.
 run *args:
     cargo run --release -- {{args}}
 
@@ -38,6 +38,13 @@ lint:
 test:
     cargo test --locked
 
+# Clippy and tests with each terminal backend alone, as CI runs them.
+features:
+    cargo clippy --locked --all-targets --no-default-features --features herdr-core -- -D warnings
+    cargo test --locked --no-default-features --features herdr-core
+    cargo clippy --locked --all-targets --no-default-features --features tmux -- -D warnings
+    cargo test --locked --no-default-features --features tmux
+
 check-file-size:
     bash scripts/check-file-size.sh
 
@@ -50,7 +57,7 @@ sort:
     python3 scripts/check-sorted.py --fix
 
 # What CI runs.
-ci: format-check check-file-size check-sorted lint test check types
+ci: format-check check-file-size check-sorted lint test features check types
 
 # Install the tools local CI-equivalent runs need, on macOS or Ubuntu.
 setup-ci:
@@ -92,12 +99,12 @@ changelog-release output="target/changelog":
         scripts/release/generate-changelog.sh "$(scripts/release/version.sh)" {{output}}
 
 # Build this Mac's release packages, unsigned, as .github/workflows/package.yml
-# does: Herdr.app and its disk image in OUT.
+# does: Moonmux.app and its disk image in OUT.
 package-macos out="target/dist":
     cargo build --locked --release
-    scripts/release/package-macos.sh {{out}} target/release/herdr-moonframe
+    scripts/release/package-macos.sh {{out}} target/release/moonmux
 
-# Build a standalone app for this machine: target/bundle/Herdr.app on macOS.
+# Build a standalone app for this machine: target/bundle/Moonmux.app on macOS.
 bundle:
     cargo run --release -- bundle
 

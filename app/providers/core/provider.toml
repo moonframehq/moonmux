@@ -1,7 +1,8 @@
-# herdr-core, shared as `app.core`: the native provider in src/core.rs. It
-# lists what herdr-core runs (`hc ls`) each second, says which terminals
-# are this app's panes and which agents need you, and sends text and keys
-# to a terminal when a mod asks.
+# The terminals, shared as `app.core`: the native provider in src/core.
+# Each second it lists what herdr-core runs (`hc ls`) and what tmux runs
+# (the app's own server and the user's others), whichever are built in and
+# installed; says which terminals are this app's panes and which agents
+# need you; and sends text and keys to a terminal when a mod asks.
 interval = 1.0
 kind     = "native"
 # The sidebar and status bar read it from the first frame.
@@ -10,6 +11,7 @@ start = "always"
 [settings]
 # The mods that may act on terminals: type into one, press its keys,
 # interrupt it, read its screen (a peek), or end a closed pane's shell. These
-# reach any terminal in herdr-core, so a mod from a package the user
-# installed is refused unless its name is added here.
+# reach any terminal in herdr-core and any pane of the user's tmux servers,
+# so a mod from a package the user installed is refused unless its name is
+# added here.
 writers = ["peek", "workspace"]

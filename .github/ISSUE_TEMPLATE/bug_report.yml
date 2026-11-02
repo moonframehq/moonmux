@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug or unexpected behavior in Herdr on Moonframe
+description: Report a bug or unexpected behavior in Moonmux
 title: "[Bug]: "
 labels:
   - bug
@@ -7,14 +7,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Help us reproduce the problem in Herdr on Moonframe.
+        Help us reproduce the problem in Moonmux.
         Redact secrets, private paths, and confidential terminal content from logs and screenshots.
   - type: checkboxes
     id: preflight
     attributes:
       label: Preflight checklist
       options:
-        - label: I have searched [existing issues](https://github.com/penso/herdr-moonframe/issues) for duplicates.
+        - label: I have searched [existing issues](https://github.com/moonframehq/moonmux/issues) for duplicates.
           required: true
   - type: textarea
     id: actual
@@ -39,7 +39,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Running Herdr on Moonframe version
+      label: Running Moonmux version
       description: From the app menu's About panel. For source builds, also include the commit if known.
       placeholder: "0.1.0 (release) or a commit (local build)"
     validations:
