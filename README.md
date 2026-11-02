@@ -18,8 +18,12 @@ herdr-core terminals, and the status line](docs/screenshots/herdr.png)
   or Idle; click one to jump to its pane. Agents running **elsewhere** in
   herdr-core (other apps, `hc run`, workers) are listed too: click to
   **peek** at their screen and answer them (text, Enter, Esc, interrupt).
-- **Layout** and **Themes**, top right, change the tab style, the pane
-  headers, the status line and the colours; the status line shows
+- **Alerts**: when an agent needs you or finishes while you look
+  elsewhere, Herdr plays a sound and posts a notification; click it to go to
+  the agent. Settings (⌘,) > Alerts turns them off, or on for agents
+  elsewhere too.
+- **Settings > Look** picks System, Light or Dark, a theme for each, the tab
+  style, the pane headers and the status line; the status line shows
   herdr-core's version and what needs you.
 
 ## Install
