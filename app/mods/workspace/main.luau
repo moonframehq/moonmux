@@ -407,6 +407,7 @@ return mod {
 		[".ws-panel-button:hover"] = { background = "list-hover", color = "foreground" },
 		[".ws-panel-button:selected"] = { background = "list-hover", color = "foreground" },
 		[".ws-tools-gap"] = { width = 1, height = 18, background = "border", margin = { 0, 4 } },
+		[".ws-card-alone"] = { margin = { 0, 0, 0, 10 } },
 		[".ws-card"] = {
 			background = "card",
 			radius = 12,
@@ -846,7 +847,8 @@ return mod {
 		local body = ui.hsplit {
 			id = "ws-body",
 			divider = false,
-			ui.pane { ui.column { class = "ws-card", grow = true, gap = "none", content } },
+			-- Clear of the window's left edge while the sidebar is hidden.
+			ui.pane { ui.column { class = if state.sidebar then "ws-card" else { "ws-card", "ws-card-alone" }, grow = true, gap = "none", content } },
 			ui.pane {
 				size = 368,
 				min = 280,
