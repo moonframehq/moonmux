@@ -7,11 +7,18 @@
 //! `moonframe` label (`pane#<id>/term`) which one. A finished terminal of
 //! one of ours says its pane's shell exited. An address is herdr-core's
 //! own (`t7`).
+//!
+//! `hc ls`'s `cwd` is the folder a terminal started in. For this app's own
+//! panes, whose folder the Files and Changes panels follow, each tick also
+//! asks `hc get` where its foreground program is now (`foreground.cwd`).
+//!
+//! Every `hc` call is bounded by [`DEADLINE`]: one that hangs fails instead
+//! of holding up the tick, and with it every backend's terminals.
 
 use {
-    super::{Backend, Listing, new_command, tilde},
+    super::{Backend, Listing, new_command, output_within, tilde},
     serde_json::{Value, json},
-    std::{collections::HashMap, path::PathBuf},
+    std::{collections::HashMap, io, path::PathBuf, time::Duration},
 };
 
 /// The label herdr-core keeps the owning app's name in.
@@ -20,6 +27,8 @@ const APP_LABEL: &str = "moonframe-app";
 const KEY_LABEL: &str = "moonframe";
 /// The mod whose instances are the app's panes; `pane#<id>` owns each.
 const PANE_MOD: &str = "pane#";
+/// How long one `hc` call may run before it is stopped and fails.
+const DEADLINE: Duration = Duration::from_secs(5);
 /// Ticks between looks at the server itself (its name and version).
 const SERVER_EVERY: u64 = 30;
 /// Lines of history above the screen a peek shows.
@@ -78,6 +87,8 @@ pub(crate) struct HerdrCore {
     stamps: HashMap<String, Stamp>,
     /// The server's name and version, looked at now and then.
     server: Value,
+    /// How long one `hc` call may run: [`DEADLINE`], shorter in tests.
+    deadline: Duration,
 }
 
 impl HerdrCore {
@@ -87,24 +98,32 @@ impl HerdrCore {
             labels: HashMap::new(),
             stamps: HashMap::new(),
             server: Value::Null,
+            deadline: DEADLINE,
         }
     }
 
     /// Runs `hc args...` and returns what it printed, or why it failed.
+    /// One that runs longer than `self.deadline` is stopped and fails.
     fn hc(&self, args: &[&str]) -> Result<String, String> {
         let Some(hc) = &self.hc else {
             return Err("herdr-core is not installed: `hc` was not found".to_owned());
         };
-        let output = new_command(hc)
-            .args(args)
-            .output()
-            .map_err(|error| format!("hc {}: {error}", args.first().unwrap_or(&"")))?;
+        let mut command = new_command(hc);
+        command.args(args);
+        let verb = args.first().unwrap_or(&"");
+        let output = output_within(&mut command, b"", self.deadline).map_err(|error| {
+            if error.kind() == io::ErrorKind::TimedOut {
+                format!("hc {verb} did not answer")
+            } else {
+                format!("hc {verb}: {error}")
+            }
+        })?;
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).into_owned())
         } else {
             let said = String::from_utf8_lossy(&output.stderr).trim().to_owned();
             Err(if said.is_empty() {
-                format!("hc {} failed", args.first().unwrap_or(&""))
+                format!("hc {verb} failed")
             } else {
                 said
             })
@@ -152,6 +171,13 @@ impl HerdrCore {
         let ms = got.get("status_ms").and_then(Value::as_i64).unwrap_or(0);
         self.stamps.insert(address, Stamp { status, turn, ms });
         ms
+    }
+
+    /// Where the program in front in `address` is now, from `hc get`; `None`
+    /// when herdr-core cannot say.
+    fn live_cwd(&self, address: &str) -> Option<String> {
+        let got = self.hc_json(&["get", address, "--json"]).ok()?;
+        live_cwd_of(&got).map(str::to_owned)
     }
 
     /// The live terminals of this app (the label says so; `labels_of`
@@ -225,9 +251,15 @@ impl Backend for HerdrCore {
             let labels = self.labels_of(&address);
             if text(terminal, "state") == "live" {
                 let since = self.status_ms(terminal);
+                let mut terminal = terminal.clone();
+                if labels.ours
+                    && let Some(cwd) = self.live_cwd(&address)
+                {
+                    terminal["cwd"] = Value::String(cwd);
+                }
                 listing
                     .terminals
-                    .push(entry(terminal, &labels, since, home));
+                    .push(entry(&terminal, &labels, since, home));
             } else if labels.ours && !labels.pane.is_empty() {
                 listing.finished.push(labels.pane);
             }
@@ -373,6 +405,13 @@ fn turn(terminal: &Value) -> i64 {
     terminal.get("turn").and_then(Value::as_i64).unwrap_or(0)
 }
 
+/// The folder `hc get` says the foreground program of a terminal is in.
+fn live_cwd_of(got: &Value) -> Option<&str> {
+    got.pointer("/foreground/cwd")
+        .and_then(Value::as_str)
+        .filter(|cwd| !cwd.is_empty())
+}
+
 /// One terminal as the mods read it; `status_ms` is when it entered its
 /// status.
 fn entry(terminal: &Value, labels: &Labels, status_ms: i64, home: &str) -> Value {
@@ -421,6 +460,30 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn an_hc_that_hangs_fails_in_time() {
+        use std::{os::unix::fs::PermissionsExt as _, time::Instant};
+        let dir = std::env::temp_dir().join(format!("moonmux-hc-hangs-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let hc = dir.join("hc");
+        std::fs::write(&hc, "#!/bin/sh\nexec sleep 5\n").unwrap();
+        std::fs::set_permissions(&hc, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut core = HerdrCore {
+            hc: Some(hc),
+            deadline: Duration::from_millis(100),
+            ..HerdrCore::new()
+        };
+        let started = Instant::now();
+        assert_eq!(core.live_cwd("t1"), None);
+        assert_eq!(
+            core.list(1, "/home").err(),
+            Some("hc ls did not answer".to_owned())
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn pane_ids_come_from_the_key_label() {
         assert_eq!(pane_of("pane#p12/term"), "p12");
@@ -452,6 +515,17 @@ mod tests {
         let theirs = json!({ "labels": { "moonframe-app": "moonframe-sessions", "moonframe": "pane#p3/term" } });
         assert_eq!(labels_from(&theirs), Labels::default());
         assert_eq!(labels_from(&json!({})), Labels::default());
+    }
+
+    #[test]
+    fn the_live_folder_is_the_foreground_programs() {
+        let got = json!({
+            "cwd": "/home/u/",
+            "foreground": { "cwd": "/home/u/code/app", "name": "zsh" },
+        });
+        assert_eq!(live_cwd_of(&got), Some("/home/u/code/app"));
+        assert_eq!(live_cwd_of(&json!({ "cwd": "/home/u/" })), None);
+        assert_eq!(live_cwd_of(&json!({ "foreground": { "cwd": "" } })), None);
     }
 
     #[test]
