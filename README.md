@@ -2,11 +2,17 @@
 
 # Herdr on Moonframe
 
-A desktop app for terminals and coding agents, built on
-[Moonframe](https://github.com/penso/moonframe): its whole window is laid out
-by Luau in `app/`, and its terminals run in
-[herdr-core](https://github.com/herdrdev/herdr-core), so they keep running
-when the window closes.
+A desktop app for terminals and coding agents. Split your work into spaces,
+tabs and panes, see at a glance which agent is working, done or waiting on
+you, and close the window without losing a single shell: terminals run in
+[herdr-core](https://github.com/herdrdev/herdr-core), or in
+[tmux](https://github.com/tmux/tmux) when herdr-core isn't installed, and
+are still there when you come back.
+
+Herdr is **malleable software**: built on
+[Moonframe](https://github.com/penso/moonframe), its whole window is a few
+small [Luau](https://luau.org) scripts you can change while it runs. See
+[Make it yours](#make-it-yours).
 
 ![Herdr on Moonframe: three spaces in the sidebar, a tab split into three
 herdr-core terminals, and the status line](docs/screenshots/herdr.png)
@@ -30,8 +36,18 @@ herdr-core terminals, and the status line](docs/screenshots/herdr.png)
 
 Download the latest [release](https://github.com/penso/herdr-moonframe/releases):
 the macOS disk image (Apple Silicon and Intel), or the Linux or Windows
-archive. Herdr needs [herdr-core](https://github.com/herdrdev/herdr-core)
-(`hc`) installed; see its README for how.
+archive.
+
+Herdr keeps its terminals in whichever of these it finds first:
+
+| Installed | Terminals | Agents |
+| --- | --- | --- |
+| [herdr-core](https://github.com/herdrdev/herdr-core) (`hc`), recommended | Keep running after the window closes | Listed with their status, alerts and peek |
+| [tmux](https://github.com/tmux/tmux) | Keep running after the window closes, on Herdr's own tmux server (`tmux -L herdr-moonframe`) | Not tracked |
+| Neither | A plain shell that ends with the window | Not tracked |
+
+Install herdr-core (see its README) for everything above; tmux alone gives
+you shells that survive the window.
 
 Every release is signed with Sigstore and carries GitHub attestations; see
 [verifying a download](docs/releasing.md#verifying-a-download).
@@ -52,9 +68,45 @@ Every release is signed with Sigstore and carries GitHub attestations; see
 
 Right-click a space or tab to rename it.
 
+## Make it yours
+
+Most desktop apps are finished when you get them: you can change their
+settings, and that's it. Herdr is built on
+[Moonframe](https://github.com/penso/moonframe), a framework for
+**malleable software**, apps their users reshape while they run. Every part
+of Herdr's window (the sidebar, the tab strip, the panes, the status line,
+the Settings dialog) is a short Luau file, and Moonframe redraws the window
+the moment one changes, keeping your spaces, tabs and shells as they were.
+No rebuild, no restart.
+
+So if you want a different sidebar, a new status line widget, another
+shortcut, or a colour that isn't in any theme, you can have it:
+
+- **Ask an agent.** **Send feedback** (the title bar's `?`) hands what you
+  write to a coding agent (Claude, Codex, Gemini and others), which changes
+  the app in front of you.
+- **Do it yourself.** Put your own files in `~/.config/herdr-moonframe`:
+  they are laid over the built-in app, so a mod or a `style.luau` there
+  replaces or adds to Herdr's own. Updates never touch that folder.
+- **Change Herdr itself.** Clone this repository and `just run`; edits to
+  `app/` show live (see below). `app/main.luau` lays out the window,
+  `app/mods/` fills it, and `app/style.luau` styles it.
+
+Luau runs sandboxed, with no direct access to your files, network or
+processes. A script reaches them only through the operations Herdr's Rust
+providers allow it: the Files panel reads the files it shows, and only the
+mods listed in `app/providers/core/provider.toml` may ask to type into,
+read or close a terminal. That list limits who asks, not who sees: what
+Herdr shares, such as the agents list and an open peek's screen text, any
+mod can read. A script you add can use all of this too, so only add
+scripts you trust. Moonframe's
+[documentation](https://docs.moonframe.dev) covers mods, components and
+styling.
+
 ## Build from source
 
-Needs herdr-core, and Rust (see `rust-toolchain.toml`).
+Needs Rust (see `rust-toolchain.toml`), and herdr-core or tmux for lasting
+terminals.
 
 ```sh
 just run      # the window; edits to app/ show live
