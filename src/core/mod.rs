@@ -342,16 +342,35 @@ impl Core {
             .ok_or_else(|| format!("{} is not installed", program.name))?;
         let path = std::env::var_os("PATH");
         let command = crate::programs::command_line(program, &found, path.as_deref());
+        self.start_on_backends(pane, key, &command)
+    }
+
+    /// Gives `command` to the backend that runs `pane`. One backend failing
+    /// (herdr-core installed but not answering) must not stop the pane from
+    /// starting on another: its error only counts when no backend ran it.
+    fn start_on_backends(
+        &mut self,
+        pane: &str,
+        key: &str,
+        command: &str,
+    ) -> Result<String, String> {
+        let mut errors = Vec::new();
         for backend in self
             .backends
             .iter_mut()
             .filter(|backend| backend.installed())
         {
-            if let Some(done) = backend.start(pane, key, &command)? {
-                return Ok(done);
+            match backend.start(pane, key, command) {
+                Ok(Some(done)) => return Ok(done),
+                Ok(None) => {}
+                Err(error) => errors.push(format!("{}: {error}", backend.id())),
             }
         }
-        Err(format!("pane {pane} has no live terminal"))
+        if errors.is_empty() {
+            Err(format!("pane {pane} has no live terminal"))
+        } else {
+            Err(errors.join("; "))
+        }
     }
 
     /// Ends the shells of this app's panes `panes` (`p1,p4`) on every

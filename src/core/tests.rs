@@ -11,6 +11,8 @@ struct Fake {
     prefix: &'static str,
     listing: Result<Vec<Value>, String>,
     finished: Vec<String>,
+    /// What `start` answers.
+    started: Result<Option<String>, String>,
     told: Arc<Mutex<Vec<String>>>,
 }
 
@@ -22,6 +24,7 @@ impl Fake {
             prefix,
             listing: Ok(Vec::new()),
             finished: Vec::new(),
+            started: Ok(None),
             told: Arc::clone(told),
         }
     }
@@ -70,8 +73,9 @@ impl Backend for Fake {
     fn close_panes(&mut self, panes: &[&str]) -> Result<String, String> {
         self.tell(format!("close {}", panes.join(",")))
     }
-    fn start(&mut self, _pane: &str, _key: &str, _command: &str) -> Result<Option<String>, String> {
-        Ok(None)
+    fn start(&mut self, pane: &str, _key: &str, command: &str) -> Result<Option<String>, String> {
+        self.tell(format!("start {pane} {command}"))?;
+        self.started.clone()
     }
 }
 
@@ -279,4 +283,43 @@ fn replies_carry_the_action_and_its_outcome() {
     let failed = reply("send", "t1", Err("gone".to_owned()));
     assert_eq!(failed.get("ok"), Some(&Data::Bool(false)));
     assert_eq!(failed.get("error").and_then(Data::as_str), Some("gone"));
+}
+
+#[test]
+fn an_agent_starts_on_tmux_when_herdr_core_fails() {
+    let told = Arc::default();
+    let (mut herdr, mut tmux) = two(&told);
+    herdr.started = Err("hc ls failed".into());
+    tmux.started = Ok(Some("started".into()));
+    let mut core = Core::with(vec![Box::new(herdr), Box::new(tmux)]);
+    assert_eq!(
+        core.start_on_backends("p3", "claude", "claude"),
+        Ok("started".into())
+    );
+    // herdr-core was asked first, and its failure did not stop tmux.
+    assert_eq!(
+        *told.lock().unwrap(),
+        ["herdr-core start p3 claude", "tmux start p3 claude"]
+    );
+}
+
+#[test]
+fn a_start_no_backend_runs_reports_why() {
+    let told = Arc::default();
+    let (mut herdr, tmux) = two(&told);
+    herdr.started = Err("hc ls failed".into());
+    let mut core = Core::with(vec![Box::new(herdr), Box::new(tmux)]);
+    assert_eq!(
+        core.start_on_backends("p3", "claude", "claude"),
+        Err("herdr-core: hc ls failed".into())
+    );
+    let mut idle = Core::with(vec![Box::new(Fake::new(
+        "tmux",
+        "default:",
+        &Arc::default(),
+    ))]);
+    assert_eq!(
+        idle.start_on_backends("p3", "claude", "claude"),
+        Err("pane p3 has no live terminal".into())
+    );
 }
