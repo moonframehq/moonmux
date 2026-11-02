@@ -194,6 +194,12 @@ place.
 
 ## Make it yours
 
+Most desktop apps are finished when you get them: you can change their
+settings, and that's it. Moonmux is **malleable software**, an app you
+reshape while it runs. Moonframe redraws the window the moment one of its
+files changes, keeping your spaces, tabs and shells as they were: no
+rebuild, no restart.
+
 Everything on screen is a Luau file in `app/`: the shell in `app/main.luau`,
 each part of the window a mod in `app/mods/` (the sidebar, the workspace, the
 panels, Settings), shared pieces in `app/components/`, and the look in
@@ -218,7 +224,9 @@ others publish install from git with `moonmux mod install <owner/repo>`. See
   reach any terminal herdr-core or your tmux servers run, so the `core`
   provider only takes them from the mods its `provider.toml` names
   (`writers`); a mod installed from elsewhere is refused unless you add it.
-  The same goes for committing (the `changes` provider).
+  The same goes for committing (the `changes` provider). That list limits
+  who acts, not who sees: what the app shares, such as the agents list and
+  an open peek's screen text, any mod can read, so only add mods you trust.
 - **Agents are typed only from a fixed table.** The **+** menu can start only
   the agents the app knows, found on this machine, once per pane.
 - **Repositories are not trusted.** Files and Changes run git with nothing a
