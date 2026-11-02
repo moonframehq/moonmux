@@ -22,7 +22,7 @@ unwrap_used = "deny"
 # to work on both, patch it to a checkout:
 #   [patch."https://github.com/penso/moonframe"]
 #   moonframe = { path = "../moonframe/crates/moonframe" }
-moonframe  = { default-features = false, features = ["acp", "alacritty", "tokio"], git = "https://github.com/penso/moonframe", rev = "8cb7b79f96a23a23d3098b2ba1b41ee518498f2b" }
+moonframe  = { default-features = false, features = ["acp", "alacritty", "tokio"], git = "https://github.com/penso/moonframe", rev = "4b2ee50e0f8fed91546001bfbd1ef368c394de5d" }
 serde_json = "1"
 tracing    = "0.1"
 

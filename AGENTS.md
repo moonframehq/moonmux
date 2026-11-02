@@ -43,9 +43,10 @@ tests with either alone and with both; `just features` and CI check that.
 | `app/mods/pane` | One instance per pane (`pane#p3`), each owning one terminal (`pane#p3/term`) on the backend the workspace gives it |
 | `app/mods/sidebar` | Spaces, then agents in our panes, then agents elsewhere |
 | `app/mods/peek`, `app/mods/statusbar` | The peek sheet and the status line |
-| `app/mods/settings` | The Settings dialog (⌘,): Look (appearance, theme, and the layout choices it publishes on `topic:moonmux/layout`), Terminals (the backend new panes run on, on `topic:moonmux/backend`), Machines, Alerts, Updates, Privacy |
-| `app/mods/palette`, `app/mods/welcome` | The command palette (⌘⇧P), fed the shell's menus; the first-launch Welcome (Help > Welcome to Moonmux) |
-| `app/components` | The app's own components (`appearance`, shared by Settings and Welcome) |
+| `app/mods/settings` | The Settings dialog (⌘,): Look (appearance and a light and a dark theme, through `app:appearance` and `app:theme`, and the layout choices it publishes on `topic:moonmux/layout`), Terminals (the backend new panes run on, on `topic:moonmux/backend`), Machines, Alerts (its switches on `topic:moonmux/alerts`), Updates, Privacy |
+| `app/mods/alerts` | No region; the shell mounts it with `{ active = app.window.active }`. A sound (`app:sound`) and a notification (`app:notify`) when an agent turns to needs you or done unseen; a click (`app/notification`) goes to it |
+| `app/mods/palette`, `app/mods/welcome` | The command palette (⌘⇧P), fed the shell's menus (app commands run through `app:command`); the first-launch Welcome (Help > Welcome to Moonmux) |
+| `app/components` | The app's own components (`appearance`, shared by Settings and Welcome; `theme-cards`, Settings > Look's picker) |
 | `app/style.luau` | The look, merged over Moonframe's stylesheet |
 | `scripts/release`, `.github/workflows` | Packaging, signing and releasing (`docs/releasing.md`) |
 

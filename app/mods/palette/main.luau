@@ -3,17 +3,21 @@
 -- type; Enter runs one. The shell hands it its menus as `{ menus = ... }`,
 -- so the two never drift apart.
 --
--- A menu item that runs an app command can't be run from here: Moonframe
--- runs commands only from a control, never from `update`. Themes… opens
--- Settings > Look instead, where its button is; Minimize and Zoom are left
--- to the menu.
+-- A menu item that runs an app command (Minimize, Zoom, Themes…) is asked
+-- of the app (`app:command`), as is Toggle Light/Dark, which the host's
+-- View > Appearance submenu holds rather than ours.
 
 local command_palette = use "command-palette"
 
 type Entry = { label: string, group: string, shortcut: string?, detail: string?, to: string?, msg: any }
 type State = { open: boolean, menus: { any } }
 
--- The palette's entries: each menu item it can run, by menu.
+-- Entries for app commands no menu of ours holds.
+local EXTRA: { Entry } = {
+	{ label = "Toggle Light/Dark", group = "View", to = "app:command", msg = "toggle-theme" },
+}
+
+-- The palette's entries: each menu item it can run, by menu, then EXTRA.
 local function entries(menus: { any }): { Entry }
 	local list: { Entry } = {}
 	for _, menu in menus do
@@ -21,12 +25,15 @@ local function entries(menus: { any }): { Entry }
 			if type(item) ~= "table" or item.to == "palette" then
 				continue
 			end
-			if item.command == "show-themes" then
-				table.insert(list, { label = item.label, group = menu.title, detail = "in Settings › Look", to = "settings", msg = { open = "look" } })
-			elseif item.command == nil and item.msg ~= nil then
+			if item.command ~= nil then
+				table.insert(list, { label = item.label, group = menu.title, shortcut = item.shortcut, to = "app:command", msg = item.command })
+			elseif item.msg ~= nil then
 				table.insert(list, { label = item.label, group = menu.title, shortcut = item.shortcut, to = item.to, msg = item.msg })
 			end
 		end
+	end
+	for _, entry in EXTRA do
+		table.insert(list, entry)
 	end
 	return list
 end

@@ -7,7 +7,10 @@
 //! `cargo run --release` opens it; `-- --check` loads it headlessly; edits
 //! to `app/` show live.
 
+mod changes;
 mod core;
+mod folder;
+mod git;
 mod programs;
 
 use {
@@ -61,5 +64,7 @@ fn main() -> ExitCode {
         // Send feedback: the `?` that asks a coding agent to change this app.
         .keep(["feedback"])
         .native("core", core::Core::new)
+        .native("folder", folder::Folder::new)
+        .native("changes", changes::Changes::new)
         .run()
 }

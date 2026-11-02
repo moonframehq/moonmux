@@ -19,7 +19,8 @@
 -- reattaches it there rather than starting a second shell elsewhere.
 --
 -- After each change it publishes `topic:moonmux/workspace` (the spaces, their
--- panes, which pane shows where) for the sidebar.
+-- panes, which pane shows where) for the sidebar, and the focused pane with
+-- its space's folder for the Files and Changes panels.
 --
 -- A tab started for an agent (`{ start_agent = "claude" }`, from mods/new-menu)
 -- keeps it in `starts` until `app.core` shows the new pane's shell, then
@@ -43,6 +44,8 @@ type State = {
 	dialog: Dialog?,
 	-- What Settings > Look (mods/settings) chose: { tabs, headers }.
 	layout: any,
+	-- The right-hand panel the shell shows ("files", "changes"), if any.
+	panel: string?,
 	-- The agent each new pane is to start, by pane, until it is sent.
 	starts: { [string]: string }?,
 	-- The backend each pane runs on, by pane: `herdr-core`, `tmux`, or
@@ -246,7 +249,15 @@ local function summary(state: State)
 		end
 		table.insert(spaces, { id = space.id, name = space.name, cwd = space.cwd, tabs = #space.tabs, panes = panes })
 	end
-	return { to = "topic:moonmux/workspace", msg = { space = state.space, spaces = spaces, visible = visible, where = where } }
+	-- The focused pane: the current tab's active one, and its space's
+	-- folder for when herdr-core has not said where its shell is.
+	local space = current_space(state)
+	local tab = current_tab(state)
+	local focus = if space and tab then { pane = tab.active, cwd = space.cwd } else nil
+	return {
+		to = "topic:moonmux/workspace",
+		msg = { space = state.space, spaces = spaces, visible = visible, where = where, focus = focus },
+	}
 end
 
 -- Follows `core` (app.core) for where our panes' shells run: a pane whose
@@ -357,6 +368,21 @@ local function close_pane(state: State, space: Space, tab: Tab, pane: string)
 	return changed(state, close_sends({ pane }))
 end
 
+-- A title bar button showing or hiding a right-hand panel in the shell.
+local function panel_button(state: State, panel: string, label: string, icon: string)
+	return ui.row {
+		class = "ws-panel-button",
+		align = "center",
+		shrink = false,
+		selected = state.panel == panel,
+		msg = { panel = panel },
+		to = "shell",
+		tooltip = if state.panel == panel then `Hide {label}` else `Show {label}`,
+		ui.icon { name = icon :: any, size = "small" },
+		ui.text { label, size = "small" },
+	}
+end
+
 return mod {
 	title = "Workspace",
 	subscribe = { "moonmux/layout", "moonmux/backend", "provider/core" },
@@ -374,6 +400,9 @@ return mod {
 		[".ws-tab-cards:selected"] = { background = "card", color = "foreground" },
 		[".ws-tool"] = { width = 28, height = 28, radius = 7, color = "muted-foreground" },
 		[".ws-tool:hover"] = { background = "list-hover", color = "foreground" },
+		[".ws-panel-button"] = { padding = { 4, 8 }, radius = 7, gap = 5, color = "muted-foreground" },
+		[".ws-panel-button:hover"] = { background = "list-hover", color = "foreground" },
+		[".ws-panel-button:selected"] = { background = "list-hover", color = "foreground" },
 		[".ws-tools-gap"] = { width = 1, height = 18, background = "border", margin = { 0, 4 } },
 		[".ws-card"] = {
 			background = "card",
@@ -495,6 +524,9 @@ return mod {
 			return state
 		elseif msg.sidebar ~= nil then
 			state.sidebar = msg.sidebar
+			return state
+		elseif msg.panel ~= nil then
+			state.panel = if msg.panel == false then nil else msg.panel
 			return state
 		elseif msg.tab_index and space then
 			local index = if msg.tab_index < 0 then #space.tabs else msg.tab_index
@@ -664,6 +696,9 @@ return mod {
 			-- A shell, an agent or a space (mods/new-menu).
 			ui.mount "new-menu",
 			ui.spacer(),
+			-- The right-hand panels, which the shell shows one at a time.
+			panel_button(state, "files", "Files", "file"),
+			panel_button(state, "changes", "Changes", "git-compare"),
 			tab and icon_button { icon = "columns-2", tooltip = "Split right (⌘D)", msg = { split = tab.active, dir = "row" } },
 			tab and icon_button { icon = "rows-2", tooltip = "Split down (⇧⌘D)", msg = { split = tab.active, dir = "column" } },
 			ui.row { class = "ws-tools-gap" },

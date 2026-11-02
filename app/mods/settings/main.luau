@@ -6,11 +6,14 @@
 --
 -- Look holds the layout choices (tab style, pane headers, status line),
 -- kept on the topic `moonmux/layout` as { tabs, headers, status }, which the
--- workspace and the shell draw to match. Terminals holds the backend new
--- panes run on (Auto, herdr-core or tmux: only those built in and
--- installed, from `app.core.backends`), kept on the topic `moonmux/backend`
--- as { choice }, which the workspace reads when it opens a pane. Machines
--- lists `app.core.machines` (`hc machine ls`), read-only.
+-- workspace and the shell draw to match, and the appearance (System, Light
+-- or Dark) and a light and a dark theme, which Moonframe keeps
+-- (`app.appearance`). Terminals holds the backend new panes run on (Auto,
+-- herdr-core or tmux: only those built in and installed, from
+-- `app.core.backends`), kept on the topic `moonmux/backend` as { choice },
+-- which the workspace reads when it opens a pane. Alerts are shared on
+-- `moonmux/alerts` as { enabled, elsewhere } for mods/alerts. Machines lists
+-- `app.core.machines` (`hc machine ls`), read-only.
 
 local settings_page = use "settings-page"
 local segmented = use "segmented"
@@ -18,14 +21,16 @@ local switch = use "switch"
 local status_dot = use "status-dot"
 local copy_field = use "copy-field"
 local appearance = use "appearance"
+local theme_cards = use "theme-cards"
 
 type Layout = { tabs: string, headers: string, status: string }
 type State = {
 	open: boolean,
 	page: string,
-	-- Sounds and notifications when an agent needs you or finishes. Kept,
-	-- though Moonframe cannot play a sound or post a notification yet.
+	-- Sounds and notifications when an agent needs you or finishes (on by
+	-- default), and for agents elsewhere too (off by default).
 	alerts: boolean,
+	elsewhere: boolean,
 	layout: Layout,
 	-- The backend new panes run on: "auto", "herdr-core" or "tmux".
 	backend: string,
@@ -57,6 +62,10 @@ local function announce_backend(choice: string)
 	return { to = "topic:moonmux/backend", msg = { choice = choice } }
 end
 
+local function announce_alerts(state: State)
+	return { to = "topic:moonmux/alerts", msg = { enabled = state.alerts, elsewhere = state.elsewhere } }
+end
+
 -- Opens on `page`, reading the machines again for their page.
 local function show(state: State, page: string)
 	state.open = true
@@ -83,17 +92,19 @@ return mod {
 		[".st-feedback:hover"] = { background = "list-hover", color = "foreground" },
 	},
 
-	init = function(previous: State?): State
+	init = function(previous: State?): (State, { any })
 		local layout = previous and previous.layout or DEFAULTS
-		return {
+		local state: State = {
 			open = false,
 			page = previous and previous.page or "look",
 			alerts = if previous then previous.alerts ~= false else true,
+			elsewhere = previous ~= nil and previous.elsewhere == true,
 			layout = { tabs = layout.tabs or DEFAULTS.tabs, headers = layout.headers or DEFAULTS.headers, status = layout.status or DEFAULTS.status },
 			backend = if previous and BACKENDS[previous.backend] then previous.backend else "auto",
 			copied = false,
 			error = nil,
 		}
+		return state, { announce_alerts(state) }
 	end,
 
 	update = function(state: State, msg)
@@ -104,7 +115,10 @@ return mod {
 			return state
 		elseif msg == "toggle-alerts" then
 			state.alerts = not state.alerts
-			return state
+			return state, { announce_alerts(state) }
+		elseif msg == "toggle-elsewhere" then
+			state.elsewhere = not state.elsewhere
+			return state, { announce_alerts(state) }
 		elseif msg == "copied" then
 			state.copied = true
 			return state
@@ -161,21 +175,27 @@ return mod {
 
 		local sections: { any }
 		if state.page == "look" then
+			local look = app.appearance
 			sections = {
 				{
 					title = "Theme",
 					rows = {
 						{
 							title = "Appearance",
-							description = "Moonmux starts as your system is. Light and Dark last until you quit: Moonframe can't keep them yet, nor follow the system after launch.",
-							control = appearance { dark = app.dark },
-						},
-						{
-							title = "Theme",
-							description = "A color theme for the window and its terminals, picked in its own window. One theme serves light and dark: Moonframe keeps a single choice.",
-							control = ui.button { "Choose…", small = true, variant = "outline", command = "show-themes" },
+							description = "Light or dark, or as your system is, switching when it does.",
+							control = appearance { mode = look.mode },
 						},
 					},
+				},
+				{
+					title = "Dark",
+					description = "The theme for the window and its terminals while it is dark.",
+					content = { theme_cards { themes = look.themes, dark = true, selected = look.dark_theme } },
+				},
+				{
+					title = "Light",
+					description = "The theme while it is light.",
+					content = { theme_cards { themes = look.themes, dark = false, selected = look.light_theme } },
 				},
 				{
 					title = "Layout",
@@ -323,10 +343,14 @@ return mod {
 					rows = {
 						{
 							title = "When an agent needs you or finishes",
-							description = "A sound and a notification when an agent asks you something, or finishes while you look elsewhere.",
-							disabled = true,
-							reason = "Not available yet: Moonframe can't play sounds or post system notifications. The sidebar marks agents that need you or finished meanwhile.",
-							control = switch { on = state.alerts, msg = "toggle-alerts", disabled = true },
+							description = "A sound and a notification when an agent in your spaces asks you something or finishes while you look elsewhere. Click the notification to go to it.",
+							control = switch { on = state.alerts, msg = "toggle-alerts" },
+						},
+						{
+							title = "Agents elsewhere too",
+							description = "Also for agents started outside Moonmux or by another agent. A click peeks at them.",
+							disabled = not state.alerts,
+							control = switch { on = state.elsewhere, msg = "toggle-elsewhere", disabled = not state.alerts },
 						},
 					},
 				},

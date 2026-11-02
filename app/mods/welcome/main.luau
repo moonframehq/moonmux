@@ -69,7 +69,7 @@ return mod {
 				class = "wl-appearance",
 				align = "center",
 				ui.text { "Appearance", class = "wl-label" },
-				appearance { dark = app.dark },
+				appearance { mode = app.appearance.mode },
 			},
 		}
 		return onboarding {
