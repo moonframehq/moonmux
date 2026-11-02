@@ -342,7 +342,16 @@ mod tests {
         let Some(dir) = socket_dir() else {
             return;
         };
-        std::fs::create_dir_all(&dir).unwrap();
+        // Made as tmux makes it, only the user's: tmux refuses a socket
+        // folder others can read, which would fail every other tmux test.
+        {
+            use std::os::unix::fs::DirBuilderExt as _;
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(&dir)
+                .unwrap();
+        }
         let name = format!("moonmux-stale-{}", std::process::id());
         // A socket nothing listens on any more, as a crashed server leaves.
         drop(std::os::unix::net::UnixListener::bind(dir.join(&name)).unwrap());
