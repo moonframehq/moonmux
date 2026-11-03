@@ -211,9 +211,13 @@ return mod {
 
 	view = function(state: State, app)
 		local data = app.folder
-		local folder = state.folder
-		-- What the provider lists, once it follows this folder.
-		local listing = if data and data.folder == folder then data else nil
+		-- What the provider lists: this folder once it follows it, and
+		-- until then the folder it listed before, so a `cd` swaps one list
+		-- for the other with no "Loading files…" between them.
+		local listing = if data and (data.folder == state.folder or (data.folder and data.available))
+			then data
+			else nil
+		local folder = if listing and state.folder then listing.folder :: string else state.folder
 		local body: any
 		if not folder then
 			body = empty_state { icon = "folder", title = "No folder", message = "Focus a pane to see its files." }

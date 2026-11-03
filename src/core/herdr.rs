@@ -10,13 +10,17 @@
 //!
 //! `hc ls`'s `cwd` is the folder a terminal started in. For this app's own
 //! panes, whose folder the Files and Changes panels follow, each tick also
-//! asks `hc get` where its foreground program is now (`foreground.cwd`).
+//! asks `hc get` where its foreground program is now (`foreground.cwd`);
+//! between ticks, `hc events` (events.rs) says so the moment its shell
+//! changes folder, and that is published at once.
 //!
 //! Every `hc` call is bounded by [`DEADLINE`]: one that hangs fails instead
 //! of holding up the tick, and with it every backend's terminals.
 
+mod events;
+
 use {
-    super::{Backend, Listing, new_command, output_within, tilde},
+    super::{Backend, Listing, live::Live, new_command, output_within, tilde},
     serde_json::{Value, json},
     std::{collections::HashMap, io, path::PathBuf, time::Duration},
 };
@@ -89,6 +93,8 @@ pub(crate) struct HerdrCore {
     server: Value,
     /// How long one `hc` call may run: [`DEADLINE`], shorter in tests.
     deadline: Duration,
+    /// `hc events`, followed once the provider asks.
+    events: Option<events::Events>,
 }
 
 impl HerdrCore {
@@ -99,6 +105,7 @@ impl HerdrCore {
             stamps: HashMap::new(),
             server: Value::Null,
             deadline: DEADLINE,
+            events: None,
         }
     }
 
@@ -210,6 +217,14 @@ impl Backend for HerdrCore {
 
     fn find(&mut self) {
         self.hc = find_hc();
+    }
+
+    fn follow(&mut self, live: &Live) {
+        if let Some(hc) = &self.hc
+            && self.events.is_none()
+        {
+            self.events = Some(events::Events::follow(hc, live.clone()));
+        }
     }
 
     fn info(&self) -> Value {

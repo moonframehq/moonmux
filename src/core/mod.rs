@@ -6,7 +6,9 @@
 //! features `herdr-core` and `tmux`) and installed is listed each tick, and
 //! what they list is published together: an agent in one of this app's
 //! panes shows in its pane, and one started anywhere else (another app,
-//! `hc run`, the user's own tmux) shows too, to be peeked at.
+//! `hc run`, the user's own tmux) shows too, to be peeked at. A backend that
+//! hears a pane's shell change folder between ticks (herdr-core's `hc
+//! events`) has it published at once (live.rs).
 //!
 //! What it publishes:
 //!
@@ -69,6 +71,7 @@ compile_error!("enable at least one terminal backend: the `herdr-core` or `tmux`
 mod herdr;
 #[cfg(feature = "herdr-core")]
 pub(crate) use herdr::find_hc;
+mod live;
 #[cfg(feature = "tmux")]
 mod tmux;
 
@@ -127,6 +130,9 @@ pub(crate) trait Backend: Send {
     /// marking it as given the agent `key` first. `Ok(None)` when the pane
     /// has no live terminal on this backend.
     fn start(&mut self, pane: &str, key: &str, command: &str) -> Result<Option<String>, String>;
+    /// Starts telling `live` where this app's panes' shells move to as it
+    /// hears it, between ticks, if it can; called again after each `find`.
+    fn follow(&mut self, _live: &live::Live) {}
     /// The machines it reaches (herdr-core's `hc machine ls`), if it has
     /// any notion of them.
     fn machines(&mut self) -> Option<Value> {
@@ -158,8 +164,9 @@ pub(crate) struct Core {
     /// and then.
     programs: Value,
     ticks: u64,
-    /// What was last published, so an unchanged tick redraws nothing.
-    last: Value,
+    /// What was last published, shared with the backends that follow
+    /// moves between ticks; from `start` on.
+    live: Option<live::Live>,
     /// The mods that may watch and act (`[settings] writers`).
     writers: Vec<String>,
 }
@@ -178,7 +185,7 @@ impl Core {
             opened: None,
             programs: Value::Null,
             ticks: 0,
-            last: Value::Null,
+            live: None,
             writers: Vec::new(),
         }
     }
@@ -198,6 +205,9 @@ impl Core {
             if self.ticks > 0 {
                 for backend in &mut self.backends {
                     backend.find();
+                    if let Some(live) = &self.live {
+                        backend.follow(live);
+                    }
                 }
             }
         }
@@ -295,11 +305,11 @@ impl Core {
         snapshot
     }
 
-    fn publish(&mut self, host: &Handle) {
+    /// Publishes what the backends list, unless nothing changed.
+    fn publish(&mut self) {
         let snapshot = self.snapshot();
-        if snapshot != self.last {
-            host.publish_json(&snapshot);
-            self.last = snapshot;
+        if let Some(live) = &self.live {
+            live.publish(snapshot);
         }
     }
 
@@ -402,13 +412,18 @@ impl Core {
 impl Native for Core {
     fn start(&mut self, host: &Handle) -> Result<(), String> {
         self.writers = writers(host.settings());
-        self.publish(host);
+        let live = live::Live::new(host, &std::env::var("HOME").unwrap_or_default());
+        for backend in &mut self.backends {
+            backend.follow(&live);
+        }
+        self.live = Some(live);
+        self.publish();
         Ok(())
     }
 
-    fn tick(&mut self, host: &Handle) {
+    fn tick(&mut self, _host: &Handle) {
         self.ticks += 1;
-        self.publish(host);
+        self.publish();
     }
 
     fn receive(&mut self, host: &Handle, from: &str, message: Data) {
@@ -416,7 +431,7 @@ impl Native for Core {
         if message.get("refresh").and_then(Data::as_str) == Some("machines") {
             if once_a_tick(&mut self.refreshed, self.ticks) {
                 self.machines = Value::Null;
-                self.publish(host);
+                self.publish();
             }
             return;
         }
@@ -459,7 +474,7 @@ impl Native for Core {
             }
             host.send(from, reply(action, &address, result));
         }
-        self.publish(host);
+        self.publish();
     }
 }
 
