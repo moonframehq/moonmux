@@ -534,7 +534,9 @@ return mod {
 			})
 		end
 
-		local function section(id: string, title: string, count: number?, action: any, children: { any })
+		-- `gap` spaces its rows: the spaces' cards stand apart, while agents'
+		-- rows touch so their tree lines join.
+		local function section(id: string, title: string, count: number?, action: any, children: { any }, gap: ("small" | "normal")?)
 			local open = not state.collapsed[id]
 			return ui.column {
 				gap = "none",
@@ -548,7 +550,7 @@ return mod {
 					ui.spacer(),
 					action,
 				},
-				open and ui.column { gap = "none", table.unpack(children) },
+				open and ui.column { gap = gap or "none", table.unpack(children) },
 			}
 		end
 
@@ -583,7 +585,7 @@ return mod {
 				scroll = true,
 				section("spaces", "Spaces", nil,
 					icon_button { icon = "plus", size = "small", tooltip = "New space (⌘N)", msg = "new-space", to = "workspace" },
-					rows),
+					rows, "small"),
 				section("agents", "Agents", #ours, sort_button(state.sort), list.ours),
 				list.count > 0 and section("elsewhere", "Elsewhere", list.count, nil, list.elsewhere),
 				problem,
