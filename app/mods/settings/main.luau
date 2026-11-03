@@ -377,12 +377,12 @@ return mod {
 						{
 							title = `Moonmux {(core and core.app_version) or ""}`,
 							description = "Moonmux looks for a new version once a day and offers it when there is one.",
-							control = ui.button { "Check Now", icon = "refresh-cw", small = true, variant = "outline", msg = "check-updates" },
+							control = ui.button { "Check Now", icon = "refresh-cw", variant = "outline", msg = "check-updates" },
 						},
 						{
 							title = "Release notes",
 							description = "What changed in each version, and every download.",
-							control = ui.button { "Releases", icon = "external-link", small = true, variant = "outline", msg = "releases" },
+							control = ui.button { "Releases", icon = "external-link", variant = "outline", msg = "releases" },
 						},
 					},
 					content = if state.error then { ui.text { state.error, class = "st-error", wrap = true } } else nil,
