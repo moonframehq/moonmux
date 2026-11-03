@@ -2975,6 +2975,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "herdr-credentials"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
+dependencies = [
+ "futures-lite",
+ "oo7",
+ "rustix",
+ "secrecy",
+ "security-framework",
+ "thiserror 2.0.21",
+ "tracing",
+ "windows-sys 0.61.2",
+ "zeroize",
+]
+
+[[package]]
+name = "herdr-github"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
+dependencies = [
+ "chrono",
+ "getrandom 0.4.3",
+ "herdr-client",
+ "herdr-credentials",
+ "herdr-rate-limit",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tracing",
+ "ureq",
+ "zeroize",
+]
+
+[[package]]
 name = "herdr-protocol"
 version = "0.1.0"
 source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
@@ -2987,6 +3022,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "herdr-rate-limit"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
+dependencies = [
+ "chrono",
+ "http",
+]
+
+[[package]]
 name = "herdr-terminal"
 version = "0.1.0"
 source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
@@ -2995,6 +3039,19 @@ dependencies = [
  "herdr-backend",
  "herdr-protocol",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "herdr-vcs"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
+dependencies = [
+ "herdr-client",
+ "herdr-github",
+ "secrecy",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]
@@ -4124,6 +4181,7 @@ dependencies = [
  "imagesize 0.15.0",
  "moonframe-acp",
  "moonframe-core",
+ "moonframe-git",
  "moonframe-history",
  "moonframe-mux",
  "moonframe-packages",
@@ -4169,10 +4227,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "moonframe-git"
+version = "0.1.0"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#6a8b334a91dd726031f52981f750f9c841cadfc0"
+dependencies = [
+ "herdr-github",
+ "herdr-vcs",
+ "moonframe-core",
+ "moonframe-providers",
+ "serde_json",
+]
+
+[[package]]
 name = "moonframe-history"
 version = "0.1.0"
 source = "git+https://github.com/moonframehq/moonframe?branch=main#6a8b334a91dd726031f52981f750f9c841cadfc0"
 dependencies = [
+ "herdr-client",
+ "herdr-vcs",
  "tracing",
 ]
 
@@ -6232,6 +6304,16 @@ name = "seahash"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
+
+[[package]]
+name = "secrecy"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e891af845473308773346dc847b2c23ee78fe442e0472ac50e22a18a93d3ae5a"
+dependencies = [
+ "serde",
+ "zeroize",
+]
 
 [[package]]
 name = "security-framework"

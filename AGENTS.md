@@ -125,10 +125,11 @@ tests with either alone and with both; `just features` and CI check that.
 - Treat terminal content, screens, and herdr-core's and tmux's output as
   untrusted data.
 - Moonframe follows its `main` branch, with only the features this app uses
-  (`acp` for Send feedback, `alacritty`, `tokio`, and `herdr-core` through
-  the feature of that name). `Cargo.lock` holds the commit every build uses;
-  `just moonframe` (or a Dependabot PR) moves it to `main`'s latest, and
-  that move still needs `just ci` and a look at the window.
+  (`acp` for Send feedback, `alacritty`, `git` for Changes and Send feedback,
+  `tokio`, and `herdr-core` through the feature of that name). `Cargo.lock`
+  holds the commit every build uses; `just moonframe` (or a Dependabot PR)
+  moves it to `main`'s latest, and that move still needs `just ci` and a
+  look at the window.
 - Avoid unrelated lockfile upgrades. Use `--locked` for reproducible checks.
 
 ## Changelog
