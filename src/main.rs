@@ -70,7 +70,7 @@ fn main() -> ExitCode {
         app.embedded_app::<AppFiles>()
     };
     app
-        // Send feedback: the `?` that asks a coding agent to change this app.
+        // Make it yours: the sparkles that ask a coding agent to change this app.
         .keep(["feedback"])
         .native("core", core::Core::new)
         .native("folder", folder::Folder::new)

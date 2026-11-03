@@ -1,5 +1,5 @@
-# Send feedback: the built-in `acp` provider, here so that the agent the
-# `?` starts (the built-in mods/feedback, kept in moonframe.toml) is told
+# Make it yours: the built-in `acp` provider, here so that the agent the
+# sparkles start (the built-in mods/feedback, kept in moonframe.toml) is told
 # to change this app's folder.
 interval = 0.25
 kind     = "native"

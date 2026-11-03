@@ -709,7 +709,7 @@ return mod {
 			ui.row { class = "ws-tools-gap" },
 			-- The layout choices, in Settings > Look (mods/settings).
 			ui.row { class = "ws-tool", align = "center", justify = "center", msg = { open = "look" }, to = "settings", tooltip = "Layout", ui.icon { "layout-dashboard" } },
-			-- Send feedback (the built-in mods/feedback): ask an agent to change this app.
+			-- Make it yours (the built-in mods/feedback): ask an agent to change this app.
 			ui.mount "feedback",
 			ui.row { class = "ws-tool", align = "center", justify = "center", command = "show-themes", tooltip = "Themes", ui.icon { "palette" } },
 			-- Linux and Windows draw no window buttons without a title bar.

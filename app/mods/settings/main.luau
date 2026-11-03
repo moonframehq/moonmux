@@ -1,6 +1,6 @@
 -- Settings: a window of its own (Moonframe's `app:window`) with its pages in
 -- a nav on the left (Look, Terminals, Machines, Alerts, Updates, Privacy)
--- and Send feedback under them. The shell does not mount it.
+-- and Make it yours under them. The shell does not mount it.
 -- ⌘, (File > Settings…), the sidebar's Settings row and the title bar's
 -- layout button send it `"open"` or `{ open = "machines" }`: it goes to the
 -- page and opens its window, or raises it. Done, Escape and ⌘W close it.
@@ -132,7 +132,7 @@ return mod {
 			state.copied = true
 			return state
 		elseif msg == "feedback" then
-			-- Send feedback is the title bar's `?` (Moonframe's feedback mod),
+			-- Make it yours is the title bar's sparkles (Moonframe's feedback mod),
 			-- in the main window.
 			return state, { CLOSE_WINDOW, { to = "feedback", msg = "open" } }
 		elseif msg == "check-updates" then
@@ -407,7 +407,7 @@ return mod {
 					rows = {
 						{
 							title = "No telemetry",
-							description = "Moonmux sends nothing about you or your use of it: no usage data, no crash reports, nothing from your terminals. It talks to herdr-core and tmux on this computer; herdr-core reaches your machines over ssh. Once a day it asks GitHub for its newest release, sending nothing but the request. Send feedback goes to the coding agent you pick, only when you send it.",
+							description = "Moonmux sends nothing about you or your use of it: no usage data, no crash reports, nothing from your terminals. It talks to herdr-core and tmux on this computer; herdr-core reaches your machines over ssh. Once a day it asks GitHub for its newest release, sending nothing but the request. Make it yours goes to the coding agent you pick, only when you send it.",
 							control = ui.icon { name = "lock", tone = "success" },
 						},
 					},
@@ -425,8 +425,8 @@ return mod {
 					class = "st-feedback",
 					align = "center",
 					msg = "feedback",
-					ui.icon { name = "message-square", size = "small" },
-					ui.text { "Send feedback" },
+					ui.icon { name = "sparkles", size = "small" },
+					ui.text { "Make it yours" },
 				},
 			},
 			sections = sections,

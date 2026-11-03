@@ -41,7 +41,7 @@ agent's helpers, and lets you read and answer them without leaving your tab.
 
 Its whole window is written in Luau on [Moonframe](https://github.com/penso/moonframe),
 so it changes while it runs: edit a file, or ask an agent from the app's own
-**Send feedback** button, and the window reshapes itself with your work still
+**Make it yours** button, and the window reshapes itself with your work still
 in place.
 
 macOS (Apple Silicon and Intel), Linux (x86_64, ARM64) and Windows (x86_64).
@@ -210,7 +210,7 @@ it there: the window reloads as you save, keeping its state, and updates
 never touch your copy. A mistake never blanks the window; the broken part
 keeps its last good version and says why.
 
-You don't have to write it yourself. **Send feedback** (the **?** at the top
+You don't have to write it yourself. **Make it yours** (the sparkles at the top
 right) hands what you ask to a coding agent, which changes the app in front
 of you; Moonframe's skills in `.claude/skills` teach any agent how. Mods
 others publish install from git with `moonmux mod install <owner/repo>`. See
@@ -236,7 +236,7 @@ others publish install from git with `moonmux mod install <owner/repo>`. See
   diffs, text conversions or fsmonitor hooks, and every read is size-capped
   and kept inside the folder.
 - **No telemetry.** Moonmux talks to herdr-core and tmux on this computer;
-  herdr-core reaches your machines over ssh; Send feedback goes to the coding
+  herdr-core reaches your machines over ssh; Make it yours goes to the coding
   agent you pick, only when you send it. Once a day it asks GitHub's API
   for its newest release, and downloads one only when you choose to install
   it. The only page the app opens is the releases page, when you ask for it.
