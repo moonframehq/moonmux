@@ -131,6 +131,11 @@ return mod {
 		},
 		[".files-head"] = { padding = { 0, 14 }, gap = 8, border = "bottom", border_color = "border" },
 		[".files-folder"] = { size = "small", color = "muted-foreground" },
+		-- Shown only once a listing has taken a moment: a quick one never
+		-- blinks it.
+		[".files-loading"] = { color = "muted-foreground", opacity = 0 },
+		[".files-loading:busy"] = { opacity = 1, transition = "normal ease-out 200ms" },
+		[".files-loading:idle"] = { opacity = 0, transition = "fast ease-in" },
 		[".files-body"] = { padding = 6 },
 		[".files-row"] = { padding = { 0, 8 }, radius = 7, gap = 6 },
 		[".files-row:hover"] = { background = "list-hover" },
@@ -218,6 +223,8 @@ return mod {
 			then data
 			else nil
 		local folder = if listing and state.folder then listing.folder :: string else state.folder
+		-- Still fetching: the folder followed, or one opened in it.
+		local busy = state.folder ~= nil and (not listing or listing.folder ~= state.folder)
 		local body: any
 		if not folder then
 			body = empty_state { icon = "folder", title = "No folder", message = "Focus a pane to see its files." }
@@ -233,6 +240,7 @@ return mod {
 				local entries = listing.dirs[dir]
 				if not entries then
 					-- Opened, and not listed yet.
+					busy = true
 					table.insert(lines, { path = dir, depth = depth })
 					return
 				end
@@ -291,6 +299,20 @@ return mod {
 					ui.text { "Files", weight = "semibold" },
 					ui.spacer(),
 					folder and ui.text { base(folder), class = "files-folder", truncate = true, tooltip = folder },
+					-- A slot of its own, so the name never moves when it shows.
+					ui.row {
+						width = 14,
+						shrink = false,
+						justify = "end",
+						ui.icon {
+							name = "loader-circle",
+							size = "small",
+							spin = busy,
+							class = "files-loading",
+							state = if busy then "busy" else "idle",
+							tooltip = if busy then "Listing files…" else nil,
+						},
+					},
 				},
 				ui.column { class = "files-body", grow = true, gap = "none", body },
 			},
