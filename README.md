@@ -39,10 +39,10 @@ next launch puts them back where they were. Moonmux also sees the agents you
 started outside it, in another app, in a plain `tmux` session or as another
 agent's helpers, and lets you read and answer them without leaving your tab.
 
-Its whole window is written in Luau on [Moonframe](https://github.com/penso/moonframe),
-so it changes while it runs: edit a file, or ask an agent from the app's own
-**Make it yours** button, and the window reshapes itself with your work still
-in place.
+It is a native app written in Rust on [Moonframe](https://github.com/penso/moonframe),
+drawn on the GPU with no browser inside, and it still changes while it runs:
+edit a file, or ask an agent from the app's own **Make it yours** button, and
+the window reshapes itself with your work still in place.
 
 macOS (Apple Silicon and Intel), Linux (x86_64, ARM64) and Windows (x86_64).
 
