@@ -95,6 +95,8 @@ return mod {
 	styles = {
 		-- The page fills the window: no card edge of its own.
 		[".settings-sheet"] = { border = "none", radius = 0 },
+		-- Moonframe sets its pages flush: the hover and selected pills touch.
+		[".settings-nav-groups"] = { gap = 4 },
 		[".st-note"] = { size = "small", color = "muted-foreground" },
 		[".st-machine"] = { padding = { 10, 0 }, gap = 10, border = "bottom", border_color = "border" },
 		[".st-machine-detail"] = { size = "small", color = "muted-foreground" },
