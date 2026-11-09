@@ -76,7 +76,7 @@ macOS (Apple Silicon and Intel), Linux (x86_64, ARM64) and Windows (x86_64).
     <td width="50%" valign="top">
       <img src="docs/screenshots/settings.png" alt="The Settings window on Look: Appearance System, Light or Dark, and rows of theme cards for dark and for light, each with its colours">
       <br>
-      <sub><b>Settings.</b> Look, Terminals, Machines, Alerts, Updates and Privacy. <b>⌘⇧P</b> finds any command.</sub>
+      <sub><b>Settings.</b> Look, Terminals, Machines, Alerts and Updates. <b>⌘⇧P</b> finds any command.</sub>
     </td>
   </tr>
 </table>
@@ -168,7 +168,6 @@ pane's folder:
   releases page. Moonmux asks GitHub for its newest release once a day and
   offers it; on macOS it installs it and relaunches (also Moonmux > Check
   for Updates…).
-- **Privacy**: no telemetry, no crash reports, nothing from your terminals.
 
 The **command palette** (⌘⇧P) finds any command the menus offer, with its
 key. A short **Welcome** introduces the app on its first launch, and comes

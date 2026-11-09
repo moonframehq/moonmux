@@ -1,5 +1,5 @@
 -- Settings: a window of its own (Moonframe's `app:window`) with its pages in
--- a nav on the left (Look, Terminals, Machines, Alerts, Updates, Privacy)
+-- a nav on the left (Look, Terminals, Machines, Alerts, Updates)
 -- and Make it yours under them. The shell does not mount it.
 -- ⌘, (File > Settings…), the sidebar's Settings row and the title bar's
 -- layout button send it `"open"` or `{ open = "machines" }`: it goes to the
@@ -46,9 +46,8 @@ local PAGES = {
 	{ id = "machines", label = "Machines", icon = "server" },
 	{ id = "alerts", label = "Alerts", icon = "bell" },
 	{ id = "updates", label = "Updates", icon = "refresh-cw" },
-	{ id = "privacy", label = "Privacy", icon = "shield" },
 }
-local TITLES = { look = "Look", terminals = "Terminals", machines = "Machines", alerts = "Alerts", updates = "Updates", privacy = "Privacy" }
+local TITLES = { look = "Look", terminals = "Terminals", machines = "Machines", alerts = "Alerts", updates = "Updates" }
 local ADD_MACHINE = "hc machine add <host>"
 local DONE = { label = "Done", msg = "close", variant = "primary" }
 local OPEN_WINDOW: any = { to = "app:window", msg = { open = "settings" } }
@@ -108,7 +107,7 @@ return mod {
 	init = function(previous: State?): (State, { any })
 		local layout = previous and previous.layout or DEFAULTS
 		local state: State = {
-			page = previous and previous.page or "look",
+			page = if previous and TITLES[previous.page] then previous.page else "look",
 			alerts = if previous then previous.alerts ~= false else true,
 			elsewhere = previous ~= nil and previous.elsewhere == true,
 			layout = { tabs = layout.tabs or DEFAULTS.tabs, headers = layout.headers or DEFAULTS.headers, status = layout.status or DEFAULTS.status },
@@ -370,7 +369,7 @@ return mod {
 					},
 				},
 			}
-		elseif state.page == "updates" then
+		else
 			local server = core and core.core
 			sections = {
 				{
@@ -398,19 +397,6 @@ return mod {
 								elseif not server then "Not in use: herdr-core is not installed, or not part of this build."
 								elseif not core.ok then core.error
 								else "It runs your terminals, so they keep running through its updates and Moonmux's.",
-						},
-					},
-				},
-			}
-		else
-			sections = {
-				{
-					title = "Usage data",
-					rows = {
-						{
-							title = "No telemetry",
-							description = "Moonmux sends nothing about you or your use of it: no usage data, no crash reports, nothing from your terminals. It talks to herdr-core and tmux on this computer; herdr-core reaches your machines over ssh. Once a day it asks GitHub for its newest release, sending nothing but the request. Make it yours goes to the coding agent you pick, only when you send it.",
-							control = ui.icon { name = "lock", tone = "success" },
 						},
 					},
 				},
