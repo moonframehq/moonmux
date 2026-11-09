@@ -240,10 +240,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "anstream"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "824a212faf96e9acacdbd09febd34438f8f711fb84e09a8916013cd7815ca28d"
+dependencies = [
+ "anstyle",
+ "anstyle-parse",
+ "anstyle-query",
+ "anstyle-wincon",
+ "colorchoice",
+ "is_terminal_polyfill",
+ "utf8parse",
+]
+
+[[package]]
 name = "anstyle"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
+
+[[package]]
+name = "anstyle-parse"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52ce7f38b242319f7cabaa6813055467063ecdc9d355bbb4ce0c68908cd8130e"
+dependencies = [
+ "utf8parse",
+]
+
+[[package]]
+name = "anstyle-query"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
+dependencies = [
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "anstyle-wincon"
+version = "3.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
+dependencies = [
+ "anstyle",
+ "once_cell_polyfill",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "anyhow"
@@ -857,9 +901,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.10.0"
+version = "1.2.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86e055fa6e3e40ad6187ba25b6855eeb635d5271f8e0f0e1e9a5826b8d75bea0"
+checksum = "e17dd265a7d0f31ef544e1b20e03add05d3b45b491b633b10d67145d2acc1a38"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -967,6 +1011,12 @@ name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
+name = "colorchoice"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
 name = "concurrent-queue"
@@ -3544,6 +3594,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "is_terminal_polyfill"
+version = "1.70.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
+
+[[package]]
 name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4172,9 +4228,11 @@ dependencies = [
 
 [[package]]
 name = "moonframe"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
+ "anstream",
+ "anstyle",
  "block2 0.6.2",
  "futures",
  "gpui-kit",
@@ -4195,6 +4253,7 @@ dependencies = [
  "objc2-user-notifications",
  "raw-window-handle",
  "rust-embed",
+ "rustix",
  "serde",
  "serde_json",
  "tempfile",
@@ -4205,10 +4264,11 @@ dependencies = [
 
 [[package]]
 name = "moonframe-acp"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
  "agent-client-protocol-schema",
+ "libc",
  "moonframe-core",
  "moonframe-providers",
  "serde",
@@ -4218,8 +4278,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-core"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
  "mlua",
  "thiserror 2.0.21",
@@ -4228,8 +4288,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-git"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
  "herdr-github",
  "herdr-vcs",
@@ -4240,8 +4300,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-history"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
  "herdr-client",
  "herdr-vcs",
@@ -4250,8 +4310,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-mux"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
  "herdr-core-client",
  "moonframe-terminal",
@@ -4261,8 +4321,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-packages"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
  "moonframe-core",
  "moonframe-providers",
@@ -4275,8 +4335,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-providers"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
  "libc",
  "moonframe-core",
@@ -4290,8 +4350,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-store"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
  "moonframe-core",
  "rusqlite",
@@ -4302,12 +4362,12 @@ dependencies = [
 
 [[package]]
 name = "moonframe-terminal"
-version = "0.1.0"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#e17fd9c90c9a20cf595c2adce8360bf847f5b981"
+version = "0.2.3"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
 dependencies = [
  "alacritty_terminal 0.26.0",
  "portable-pty",
- "sysinfo 0.39.6",
+ "sysinfo 0.40.1",
  "tracing",
 ]
 
@@ -4989,6 +5049,12 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
+
+[[package]]
+name = "once_cell_polyfill"
+version = "1.70.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "oo7"
@@ -6971,9 +7037,9 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.39.6"
+version = "0.40.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2071df9448915b71c4fe6d25deaf1c22f12bd234f01540b77312bb8e41361e6"
+checksum = "0e8a3edbe0394ce115f3917a00349dd242be09eb5a091ed509eaf67b55cfb8a8"
 dependencies = [
  "libc",
  "memchr",
@@ -7045,7 +7111,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -7680,6 +7746,12 @@ checksum = "af3bd9d3e571c26fcce9d033b87ea5ab061b8d2ffe9b7a5675d810d68f03edf0"
 dependencies = [
  "utf_types",
 ]
+
+[[package]]
+name = "utf8parse"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "utf_types"
