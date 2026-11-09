@@ -14,6 +14,8 @@ type State = { open: boolean, menus: { any } }
 
 -- Entries for app commands no menu of ours holds.
 local EXTRA: { Entry } = {
+	-- Moonframe's own View menu holds Themes…, so ours does not.
+	{ label = "Themes…", group = "View", to = "app:command", msg = "show-themes" },
 	{ label = "Toggle Light/Dark", group = "View", to = "app:command", msg = "toggle-theme" },
 	{ label = "Check for Updates…", group = "Moonmux", to = "app:command", msg = "check-for-updates" },
 }

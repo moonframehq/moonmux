@@ -30,7 +30,6 @@ local MENUS: { { title: string, items: { any } } } = {
 		{ label = "Show or Hide Sidebar", msg = "toggle-left", shortcut = "secondary-b" },
 		{ label = "Show or Hide Files", msg = { panel = "files" } },
 		{ label = "Show or Hide Changes", msg = { panel = "changes" } },
-		{ label = "Themes…", command = "show-themes" },
 		"-",
 		{ label = "Next Tab", msg = "next-tab", to = "workspace", shortcut = "secondary-alt-right" },
 		{ label = "Previous Tab", msg = "prev-tab", to = "workspace", shortcut = "secondary-alt-left" },
