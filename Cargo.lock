@@ -104,9 +104,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b169f7a6d4742236a0a00c541b845991d0ac43e546831af1249753ab4c3aa3a0"
 dependencies = [
  "cfg-if",
- "cipher",
+ "cipher 0.4.4",
  "cpufeatures 0.2.17",
  "zeroize",
+]
+
+[[package]]
+name = "aes"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc0fc36d7440d015b45468ba08a21e80e056ebbd014c611c6298bb7503e04bd1"
+dependencies = [
+ "cipher 0.5.2",
+ "cpubits",
+ "cpufeatures 0.3.1",
 ]
 
 [[package]]
@@ -147,31 +158,6 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46319972e74179d707445f64aaa2893bbf6a111de3a9af29b7eb382f8b39e282"
-dependencies = [
- "base64 0.22.1",
- "bitflags 2.13.2",
- "home",
- "libc",
- "log",
- "miow",
- "parking_lot",
- "piper",
- "polling",
- "regex-automata",
- "rustix",
- "rustix-openpty",
- "serde",
- "signal-hook 0.3.18",
- "unicode-width",
- "vte",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "alacritty_terminal"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bda177466b9524d59f1b12f0dd30b68696788e9992a7e959021c4a0ed96fcf59"
@@ -189,7 +175,7 @@ dependencies = [
  "rustix",
  "rustix-openpty",
  "serde",
- "signal-hook 0.4.6",
+ "signal-hook",
  "unicode-width",
  "vte",
  "windows-sys 0.59.0",
@@ -660,6 +646,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
+name = "base64ct"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
+
+[[package]]
 name = "bincode"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -745,6 +737,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8894febbff9f758034a5b8e12d87918f56dfc64a8e1fe757d65e29041538d93"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "block-padding"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "710f1dd022ef4e93f8a438b4ba958de7f64308434fa6a87104481645cc30068b"
+dependencies = [
+ "hybrid-array",
 ]
 
 [[package]]
@@ -878,7 +879,16 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26b52a9543ae338f279b96b0b9fed9c8093744685043739079ce85cd58f289a6"
 dependencies = [
- "cipher",
+ "cipher 0.4.4",
+]
+
+[[package]]
+name = "cbc"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce2dc9ee5f88d11e0beb842c88b33c8a5cf0d1329c4b19494af42b07dbfe8896"
+dependencies = [
+ "cipher 0.5.2",
 ]
 
 [[package]]
@@ -961,9 +971,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common 0.1.7",
- "inout",
+ "inout 0.1.4",
  "zeroize",
 ]
+
+[[package]]
+name = "cipher"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8cf2a2c93cd704877c0858356ed03480ff301ee950b43f1cbe4573b088bfa6c"
+dependencies = [
+ "crypto-common 0.2.2",
+ "inout 0.2.6",
+]
+
+[[package]]
+name = "cmov"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
 name = "cocoa"
@@ -1036,6 +1062,12 @@ dependencies = [
  "cfg-if",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "const-oid"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "const-oid"
@@ -1211,6 +1243,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cpubits"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15b85f9c39137c3a891689859392b1bd49812121d0d61c9caf00d46ed5ce06ae"
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1307,10 +1345,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctutils"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "261af4dc7a06ea8a527a8717d8cbba3417530d6ea14e1edb3de6b67806be474f"
+dependencies = [
+ "cmov",
+]
+
+[[package]]
 name = "cursor-icon"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
+
+[[package]]
+name = "curve25519-dalek"
+version = "4.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "curve25519-dalek-derive",
+ "digest 0.10.7",
+ "fiat-crypto",
+ "rustc_version",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "curve25519-dalek-derive"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
 
 [[package]]
 name = "darling"
@@ -1384,6 +1458,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "der"
+version = "0.7.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
+dependencies = [
+ "const-oid 0.9.6",
+ "zeroize",
+]
+
+[[package]]
 name = "deranged"
 version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1433,8 +1517,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
  "block-buffer 0.12.1",
- "const-oid",
+ "const-oid 0.10.2",
  "crypto-common 0.2.2",
+ "ctutils",
 ]
 
 [[package]]
@@ -1560,6 +1645,30 @@ name = "dyn-clone"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
+
+[[package]]
+name = "ed25519"
+version = "2.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
+dependencies = [
+ "pkcs8",
+ "signature",
+]
+
+[[package]]
+name = "ed25519-dalek"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
+dependencies = [
+ "curve25519-dalek",
+ "ed25519",
+ "serde",
+ "sha2 0.10.9",
+ "subtle",
+ "zeroize",
+]
 
 [[package]]
 name = "either"
@@ -1788,6 +1897,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fiat-crypto"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
+
+[[package]]
 name = "filedescriptor"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1796,6 +1911,16 @@ dependencies = [
  "libc",
  "thiserror 1.0.69",
  "winapi",
+]
+
+[[package]]
+name = "filetime"
+version = "0.2.29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c287a33c7f0a620c38e641e7f60827713987b3c0f26e8ddc9462cc69cf75759"
+dependencies = [
+ "cfg-if",
+ "libc",
 ]
 
 [[package]]
@@ -3000,131 +3125,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
-name = "herdr-backend"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
-dependencies = [
- "herdr-protocol",
- "serde",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "herdr-client"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
-dependencies = [
- "base64 0.23.1",
- "crossbeam-channel",
- "herdr-protocol",
- "interprocess",
- "rustix",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
- "tracing",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "herdr-core-client"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
-dependencies = [
- "crossbeam-channel",
- "herdr-backend",
- "herdr-client",
- "herdr-terminal",
- "rustix",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "toml 1.1.8+spec-1.1.0",
- "tracing",
-]
-
-[[package]]
-name = "herdr-credentials"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
-dependencies = [
- "futures-lite",
- "oo7",
- "rustix",
- "secrecy",
- "security-framework",
- "thiserror 2.0.21",
- "tracing",
- "windows-sys 0.61.2",
- "zeroize",
-]
-
-[[package]]
-name = "herdr-github"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
-dependencies = [
- "chrono",
- "getrandom 0.4.3",
- "herdr-client",
- "herdr-credentials",
- "herdr-rate-limit",
- "secrecy",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tracing",
- "ureq",
- "zeroize",
-]
-
-[[package]]
-name = "herdr-protocol"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
-dependencies = [
- "base64 0.23.1",
- "bincode",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "herdr-rate-limit"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
-dependencies = [
- "chrono",
- "http",
-]
-
-[[package]]
-name = "herdr-terminal"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
-dependencies = [
- "alacritty_terminal 0.25.1",
- "herdr-backend",
- "herdr-protocol",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "herdr-vcs"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=9133cb18b143c9b3f12777fe69e3058eb4ecc8bf#9133cb18b143c9b3f12777fe69e3058eb4ecc8bf"
-dependencies = [
- "herdr-client",
- "herdr-github",
- "secrecy",
- "serde_json",
- "thiserror 2.0.21",
- "tracing",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3142,7 +3142,7 @@ version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
 dependencies = [
- "hmac",
+ "hmac 0.12.1",
 ]
 
 [[package]]
@@ -3152,6 +3152,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
  "digest 0.10.7",
+]
+
+[[package]]
+name = "hmac"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6303bc9732ae41b04cb554b844a762b4115a61bfaa81e3e83050991eeb56863f"
+dependencies = [
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -3539,8 +3548,18 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
- "block-padding",
+ "block-padding 0.3.3",
  "generic-array",
+]
+
+[[package]]
+name = "inout"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a580c13f0ffc335ef42dd3f6b1a41b726051c5e1656d9a3aa6fddb3c5dfbbf9"
+dependencies = [
+ "block-padding 0.4.2",
+ "hybrid-array",
 ]
 
 [[package]]
@@ -3870,9 +3889,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.38.2"
+version = "0.39.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1d20bef17f513b9b3004532233187769cd072d790971f4e4da0e346eb6401e8"
+checksum = "14a5f01b87b92705d07b433c06f96cbc764637d81a0bffb5734ce17cf0f9a2b3"
 dependencies = [
  "cc",
  "pkg-config",
@@ -4248,8 +4267,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
  "anstream",
  "anstyle",
@@ -4285,8 +4304,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-acp"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
  "agent-client-protocol-schema",
  "libc",
@@ -4299,8 +4318,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-core"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
  "mlua",
  "thiserror 2.0.21",
@@ -4309,41 +4328,41 @@ dependencies = [
 
 [[package]]
 name = "moonframe-git"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
- "herdr-github",
- "herdr-vcs",
  "moonframe-core",
  "moonframe-providers",
  "serde_json",
+ "sheprd-github",
+ "sheprd-vcs",
 ]
 
 [[package]]
 name = "moonframe-history"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
- "herdr-client",
- "herdr-vcs",
+ "sheprd-usage",
+ "sheprd-vcs",
  "tracing",
 ]
 
 [[package]]
 name = "moonframe-mux"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
- "herdr-core-client",
  "moonframe-terminal",
  "serde_json",
+ "sheprd-core-client",
  "tracing",
 ]
 
 [[package]]
 name = "moonframe-packages"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
  "moonframe-core",
  "moonframe-providers",
@@ -4357,8 +4376,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-providers"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
  "libc",
  "moonframe-core",
@@ -4372,8 +4391,8 @@ dependencies = [
 
 [[package]]
 name = "moonframe-store"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
  "moonframe-core",
  "rusqlite",
@@ -4384,10 +4403,10 @@ dependencies = [
 
 [[package]]
 name = "moonframe-terminal"
-version = "0.2.3"
-source = "git+https://github.com/moonframehq/moonframe?branch=main#602963440eacead4478f5bcda6cf6f78edb86c52"
+version = "0.3.1"
+source = "git+https://github.com/moonframehq/moonframe?branch=main#96165bc937e5ccfd20e4f07be926a0cadf665685"
 dependencies = [
- "alacritty_terminal 0.26.0",
+ "alacritty_terminal",
  "portable-pty",
  "sysinfo 0.40.1",
  "tracing",
@@ -5084,25 +5103,25 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78f2bfed90f1618b4b48dcad9307f25e14ae894e2949642c87c351601d62cebd"
 dependencies = [
- "aes",
+ "aes 0.8.4",
  "ashpd",
  "async-fs",
  "async-io",
  "async-lock",
  "blocking",
- "cbc",
- "cipher",
+ "cbc 0.1.2",
+ "cipher 0.4.4",
  "digest 0.10.7",
  "endi",
  "futures-lite",
  "futures-util",
  "getrandom 0.4.3",
  "hkdf",
- "hmac",
+ "hmac 0.12.1",
  "md-5",
  "num",
  "num-bigint-dig",
- "pbkdf2",
+ "pbkdf2 0.12.2",
  "serde",
  "serde_bytes",
  "sha2 0.10.9",
@@ -5221,7 +5240,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ed6a7761f76e3b9f92dfb0a60a6a6477c61024b775147ff0973a02653abaf2"
 dependencies = [
  "digest 0.10.7",
- "hmac",
+ "hmac 0.12.1",
+]
+
+[[package]]
+name = "pbkdf2"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "112d82ceb8c5bf524d9af484d4e4970c9fd5a0cc15ba14ad93dccd28873b0629"
+dependencies = [
+ "digest 0.11.3",
+ "hmac 0.13.0",
 ]
 
 [[package]]
@@ -5352,6 +5381,16 @@ dependencies = [
  "atomic-waker",
  "fastrand",
  "futures-io",
+]
+
+[[package]]
+name = "pkcs8"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
+dependencies = [
+ "der",
+ "spki",
 ]
 
 [[package]]
@@ -6060,9 +6099,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.40.2"
+version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23f2a97da3e3873c73cb2a2e71b35c40ff95e0b1eefa8d72d8499a6928c3b5b3"
+checksum = "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594"
 dependencies = [
  "bitflags 2.13.2",
  "fallible-iterator",
@@ -6187,9 +6226,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.1.5"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891efababe418670775f199f0d233d84843c227a0949a883ce15b37c78d6629d"
+checksum = "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa"
 dependencies = [
  "bitflags 2.13.2",
  "errno",
@@ -6611,6 +6650,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aacc4cc499359472b4abe1bf11d0b12e688af9a805fa5e3016f9a386dc2d0214"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.1",
+ "digest 0.11.3",
+]
+
+[[package]]
 name = "sha1_smol"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6673,20 +6723,202 @@ dependencies = [
 ]
 
 [[package]]
+name = "sheprd-backend"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "serde",
+ "sheprd-protocol",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "sheprd-chat-protocol"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "uuid",
+]
+
+[[package]]
+name = "sheprd-client"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "base64 0.23.1",
+ "crossbeam-channel",
+ "interprocess",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sheprd-backend",
+ "sheprd-chat-protocol",
+ "sheprd-protocol",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "sheprd-core-client"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "crossbeam-channel",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sheprd-backend",
+ "sheprd-chat-protocol",
+ "sheprd-client",
+ "sheprd-terminal",
+ "thiserror 2.0.21",
+ "toml 1.1.8+spec-1.1.0",
+ "tracing",
+]
+
+[[package]]
+name = "sheprd-credentials"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "futures-lite",
+ "oo7",
+ "rustix",
+ "secrecy",
+ "security-framework",
+ "thiserror 2.0.21",
+ "tracing",
+ "windows-sys 0.61.2",
+ "zeroize",
+]
+
+[[package]]
+name = "sheprd-github"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "chrono",
+ "getrandom 0.4.3",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "sheprd-client",
+ "sheprd-credentials",
+ "sheprd-updater",
+ "thiserror 2.0.21",
+ "tracing",
+ "ureq",
+ "zeroize",
+]
+
+[[package]]
+name = "sheprd-protocol"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "base64 0.23.1",
+ "bincode",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "sheprd-session"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sheprd-backend",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "sheprd-terminal"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "alacritty_terminal",
+ "base64 0.23.1",
+ "flate2",
+ "sheprd-backend",
+ "sheprd-protocol",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "sheprd-updater"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "chrono",
+ "ed25519-dalek",
+ "flate2",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "sheprd-client",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
+ "ureq",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "sheprd-usage"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "aes 0.9.4",
+ "cbc 0.2.1",
+ "chrono",
+ "pbkdf2 0.13.0",
+ "rusqlite",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.11.1",
+ "sheprd-client",
+ "thiserror 2.0.21",
+ "tracing",
+ "unicode-normalization",
+ "ureq",
+ "url",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
+name = "sheprd-vcs"
+version = "0.1.0"
+source = "git+https://github.com/penso/herdr-gpui?rev=7947567ddc1ede4e6940a2a8d388ba2182249445#7947567ddc1ede4e6940a2a8d388ba2182249445"
+dependencies = [
+ "secrecy",
+ "serde_json",
+ "sheprd-client",
+ "sheprd-github",
+ "sheprd-session",
+ "sheprd-usage",
+ "thiserror 2.0.21",
+ "tracing",
+]
+
+[[package]]
 name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
-
-[[package]]
-name = "signal-hook"
-version = "0.3.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d881a16cf4426aa584979d30bd82cb33429027e42122b169753d6ef1085ed6e2"
-dependencies = [
- "libc",
- "signal-hook-registry",
-]
 
 [[package]]
 name = "signal-hook"
@@ -6706,6 +6938,15 @@ checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
 dependencies = [
  "errno",
  "libc",
+]
+
+[[package]]
+name = "signature"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
+dependencies = [
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -6856,6 +7097,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9571ea910ebd84c86af4b3ed27f9dbdc6ad06f17c5f96146b2b671e2976744f"
 dependencies = [
  "bitflags 2.13.2",
+]
+
+[[package]]
+name = "spki"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
+dependencies = [
+ "base64ct",
+ "der",
 ]
 
 [[package]]
@@ -7122,6 +7373,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tar"
+version = "0.4.46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f6221d9a6003c78398e3b239969f352578258df48c8eb051caadae0015bc840"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
+]
+
+[[package]]
 name = "tauri-winrt-notification"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7139,7 +7401,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -7820,6 +8082,15 @@ name = "unicode-linebreak"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b09c83c3c29d37506a3e260c08c03743a6bb66a9cd432c6934ab501a190571f"
+
+[[package]]
+name = "unicode-normalization"
+version = "0.1.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75cd3fb03d5288b3ba9a1ee103ac7e9cbb59f0b03d64f8ddfcc04dd42758a85d"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "unicode-properties"
@@ -9228,6 +9499,16 @@ name = "x11rb-protocol"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea6fc2961e4ef194dcbfe56bb845534d0dc8098940c7e5c012a258bfec6701bd"
+
+[[package]]
+name = "xattr"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "963d6fab92d5504b971dc8bd90ca743c2575e590bc8071ea5bc571598667ae08"
+dependencies = [
+ "libc",
+ "rustix",
+]
 
 [[package]]
 name = "xcb"
