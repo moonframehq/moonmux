@@ -23,6 +23,7 @@ unwrap_used = "deny"
 # main's latest (Dependabot too). To work on both, patch it to a checkout:
 #   [patch."https://github.com/moonframehq/moonframe"]
 #   moonframe = { path = "../moonframe/crates/moonframe" }
+# `studio` keeps Developer Mode and its tools available in packaged builds too.
 moonframe  = { branch = "main", default-features = false, features = ["acp", "alacritty", "git", "markdown", "studio", "syntax", "tokio", "updates"], git = "https://github.com/moonframehq/moonframe" }
 serde_json = "1"
 tracing    = "0.1"

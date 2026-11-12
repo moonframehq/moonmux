@@ -195,6 +195,11 @@ place.
 
 ## Make it yours
 
+**Moonmux > Developer Mode** turns on the tools in View: Components,
+Inspect Element (⌥⌘I), Developer Tools (⌥⌘J), and Reload Modules (⌘R).
+It is on by default, including packaged builds, and remembers your choice.
+Run `just run --dev` to enable it for one launch.
+
 Most desktop apps are finished when you get them: you can change their
 settings, and that's it. Moonmux is **malleable software**, an app you
 reshape while it runs. Moonframe redraws the window the moment one of its
