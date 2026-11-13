@@ -19,6 +19,7 @@ return style {
 		-- The sidebar fades rather than slides: shrinking its width as it
 		-- folds would rewrap its text on every frame.
 		[".side"] = { background = "background", transition = "fade fast ease-out" },
+		[".nav"] = { background = "background", padding = { 40, 0, 0, 0 } },
 		[".middle"] = { background = "background", padding = { 0, 10, 0, 0 } },
 		terminal = { background = "card", padding = { 6, 8 } },
 		overlay = { transition = "slide-fade fast ease-out" },
