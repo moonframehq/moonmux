@@ -6,6 +6,17 @@
 //!
 //! `cargo run --release` opens it; `-- --check` loads it headlessly; edits
 //! to `app/` show live.
+//! `--no-default-features --features rune,herdr-core,tmux` (`just run-rune`)
+//! draws the same app with Rune instead of GPUI.
+
+// What draws the window (the `gpui` and `rune` features): either crate is
+// `moonframe` here, with the same builder, so nothing below names one.
+#[cfg(not(any(feature = "gpui", feature = "rune")))]
+compile_error!("choose what draws the window: the `gpui` or `rune` feature");
+#[cfg(all(feature = "gpui", not(feature = "rune")))]
+extern crate moonframe_gpui as moonframe;
+#[cfg(feature = "rune")]
+extern crate moonframe_rune as moonframe;
 
 mod changes;
 mod core;

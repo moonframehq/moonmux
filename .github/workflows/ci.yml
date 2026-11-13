@@ -151,11 +151,17 @@ jobs:
       # either alone as well as with both (the default, above).
       - name: Clippy and test with herdr-core alone
         run: |
-          cargo clippy --locked --all-targets --no-default-features --features herdr-core -- -D warnings
-          cargo test --locked --no-default-features --features herdr-core
+          cargo clippy --locked --all-targets --no-default-features --features gpui,herdr-core -- -D warnings
+          cargo test --locked --no-default-features --features gpui,herdr-core
       - name: Clippy and test with tmux alone
         run: |
-          cargo clippy --locked --all-targets --no-default-features --features tmux -- -D warnings
-          cargo test --locked --no-default-features --features tmux
+          cargo clippy --locked --all-targets --no-default-features --features gpui,tmux -- -D warnings
+          cargo test --locked --no-default-features --features gpui,tmux
+      # The same app drawn by Rune, Moonframe's experimental renderer.
+      - name: Clippy, test and load on Rune
+        run: |
+          cargo clippy --locked --all-targets --no-default-features --features rune,herdr-core,tmux -- -D warnings
+          cargo test --locked --no-default-features --features rune,herdr-core,tmux
+          cargo run --locked --no-default-features --features rune,herdr-core,tmux -- --check --no-user
       - name: Load the app headlessly
         run: cargo run --locked -- --check --no-user

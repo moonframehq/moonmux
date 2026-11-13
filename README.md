@@ -272,13 +272,16 @@ The Linux and Windows builds are new and less tried than the macOS one.
 
 You need herdr-core or tmux, and Rust (see `rust-toolchain.toml`). Each
 backend is a cargo feature, both on by default: build one alone with
-`cargo build --no-default-features --features tmux` (or `herdr-core`).
+`cargo build --no-default-features --features gpui,tmux` (or `herdr-core`).
+What draws the window is a feature too: `gpui` by default, or `rune` for
+Moonframe's experimental Rune renderer (no named themes yet).
 
 ```sh
 just run      # the window; edits to app/ show live
+just run-rune # the same app drawn by Rune instead of GPUI
 just check    # load the app headlessly
 just hooks    # once per clone: commit-message hook, Cargo.lock merges
-just features # clippy and tests with each backend alone
+just features # clippy and tests with each backend alone, and on Rune
 just ci       # what CI runs (`just setup-ci` installs its tools)
 just bundle   # target/bundle/Moonmux.app
 ```

@@ -33,6 +33,13 @@ turns on Moonframe's `herdr-core` feature) and `tmux` (Moonframe's tmux
 backend needs no feature). The app must build, pass clippy and pass its
 tests with either alone and with both; `just features` and CI check that.
 
+What draws the window is a feature as well: `gpui` (default) or `rune`,
+Moonframe's experimental renderer (`just run-rune`). `src/main.rs` names
+either crate `moonframe`, so the rest of the code never names one; never
+use GPUI or Rune directly. Rune lacks named themes for now (Settings >
+Look's theme picker). A Rune build must also pass clippy,
+its tests and `--check` (`just features`, `just check-rune`, CI).
+
 | Location | Responsibility |
 | --- | --- |
 | `src/main.rs` | `Moonframe::new("moonmux")`: `app/` read live from the checkout, else compiled in (`AppFiles`) |

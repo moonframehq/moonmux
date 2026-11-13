@@ -5,9 +5,18 @@ default:
 run *args:
     cargo run --release -- {{args}}
 
+# The same app drawn by Rune, Moonframe's experimental renderer, instead of
+# GPUI; built in target/rune, so it never rebuilds over `just run`.
+run-rune *args:
+    cargo run --release --target-dir target/rune --no-default-features --features rune,herdr-core,tmux -- {{args}}
+
 # Load the app headlessly: every mod, component and provider, without a window.
 check:
     cargo run --locked -- --check
+
+# The same headless load, on Rune.
+check-rune:
+    cargo run --locked --target-dir target/rune --no-default-features --features rune,herdr-core,tmux -- --check
 
 # Type-check the app's Luau against types/moonframe.d.luau in strict mode.
 types:
@@ -38,12 +47,15 @@ lint:
 test:
     cargo test --locked
 
-# Clippy and tests with each terminal backend alone, as CI runs them.
+# Clippy and tests with each terminal backend alone, and on Rune, as CI
+# runs them.
 features:
-    cargo clippy --locked --all-targets --no-default-features --features herdr-core -- -D warnings
-    cargo test --locked --no-default-features --features herdr-core
-    cargo clippy --locked --all-targets --no-default-features --features tmux -- -D warnings
-    cargo test --locked --no-default-features --features tmux
+    cargo clippy --locked --all-targets --no-default-features --features gpui,herdr-core -- -D warnings
+    cargo test --locked --no-default-features --features gpui,herdr-core
+    cargo clippy --locked --all-targets --no-default-features --features gpui,tmux -- -D warnings
+    cargo test --locked --no-default-features --features gpui,tmux
+    cargo clippy --locked --all-targets --target-dir target/rune --no-default-features --features rune,herdr-core,tmux -- -D warnings
+    cargo test --locked --target-dir target/rune --no-default-features --features rune,herdr-core,tmux
 
 check-file-size:
     bash scripts/check-file-size.sh
