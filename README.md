@@ -274,8 +274,7 @@ You need herdr-core or tmux, and Rust (see `rust-toolchain.toml`). Each
 backend is a cargo feature, both on by default: build one alone with
 `cargo build --no-default-features --features gpui,tmux` (or `herdr-core`).
 What draws the window is a feature too: `gpui` by default, or `rune` for
-Moonframe's experimental Rune renderer (no Settings or Make it yours
-window yet).
+Moonframe's experimental Rune renderer (no named themes yet).
 
 ```sh
 just run      # the window; edits to app/ show live

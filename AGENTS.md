@@ -36,8 +36,8 @@ tests with either alone and with both; `just features` and CI check that.
 What draws the window is a feature as well: `gpui` (default) or `rune`,
 Moonframe's experimental renderer (`just run-rune`). `src/main.rs` names
 either crate `moonframe`, so the rest of the code never names one; never
-use GPUI or Rune directly. Rune lacks windows of their own (Settings, Make
-it yours) and named themes for now. A Rune build must also pass clippy,
+use GPUI or Rune directly. Rune lacks named themes for now (Settings >
+Look's theme picker). A Rune build must also pass clippy,
 its tests and `--check` (`just features`, `just check-rune`, CI).
 
 | Location | Responsibility |
