@@ -59,17 +59,6 @@ local MENUS: { { title: string, items: { any } } } = {
 	} },
 }
 
-local activity_bar = use "activity-bar"
-
--- The left navigation bar's icons; a click sends { activity = id }.
-local ACTIVITIES = {
-	{ id = "spaces", icon = "panel-left", tooltip = "Show or Hide Sidebar" },
-	{ id = "files", icon = "folder", tooltip = "Files" },
-	{ id = "changes", icon = "git-branch", tooltip = "Changes" },
-	{ id = "palette", icon = "search", tooltip = "Command Palette" },
-}
-local ACTIVITIES_BOTTOM = { { id = "settings", icon = "settings", tooltip = "Settings" } }
-
 -- The right-hand panels: mods/files and mods/changes.
 local PANELS: { [string]: boolean } = { files = true, changes = true }
 
@@ -116,18 +105,6 @@ return mod {
 			state.status = not (msg.value and msg.value.status == "hidden")
 			return state
 		end
-		if type(msg) == "table" and msg.activity then
-			local id = msg.activity
-			if PANELS[id] then
-				msg = { panel = id }
-			elseif id == "spaces" then
-				msg = "toggle-left"
-			elseif id == "palette" then
-				return state, { { to = "palette", msg = "open" } }
-			elseif id == "settings" then
-				return state, { { to = "settings", msg = "open" } }
-			end
-		end
 		if type(msg) == "table" and PANELS[msg.panel] then
 			-- One panel at a time; its own button again hides it.
 			state.panel = if state.panel == msg.panel then nil else msg.panel
@@ -149,16 +126,10 @@ return mod {
 			ui.pane { size = 268, min = 210, max = 420, fixed = true, visible = state.left, class = "side", ui.mount "sidebar" },
 			ui.pane { class = "middle", ui.mount "workspace" },
 		}
-		-- The navigation bar starts under the traffic lights.
-		local nav = ui.column {
-			gap = "none",
-			class = "nav",
-			activity_bar { fill = true, items = ACTIVITIES, bottom = ACTIVITIES_BOTTOM, selected = state.panel },
-		}
 		return ui.column {
 			grow = true,
 			gap = "none",
-			ui.row { grow = true, gap = "none", nav, body },
+			body,
 			state.status and ui.mount "statusbar",
 			ui.mount "peek",
 			ui.mount "palette",

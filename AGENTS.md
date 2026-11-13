@@ -47,7 +47,7 @@ its tests and `--check` (`just features`, `just check-rune`, CI).
 | `src/core/mod.rs` | The `core` native provider (`app.core`): each second, the terminals of every backend built in and installed, behind the `Backend` trait; which backend Auto picks; routing a peek and actions (send, keys, interrupt, close_panes, start) to the backend whose address they name; opening the releases page; `new_command` for every child process |
 | `src/core/herdr.rs` | The herdr-core backend (`herdr-core` feature): `hc ls`, labels via `hc get`, a peek (`hc read`), machines (`hc machine ls`), `hc kill` and `hc label` |
 | `src/core/tmux/` | The tmux backend (`tmux` feature): panes of the app's own server (`tmux -L moonmux`) and the user's other servers (`server.rs`), agents found under each pane's shell and read off its screen (`agents.rs`) |
-| `app/main.luau` | The shell: navigation bar, sidebar, workspace card, status line, peek sheet; menus and their shortcuts |
+| `app/main.luau` | The shell: sidebar, workspace card, status line, peek sheet; menus and their shortcuts |
 | `app/mods/workspace` | Spaces, their tabs, and each tab's tree of split panes, all in its state, with the backend each pane runs on; the tab strip is the title bar. Publishes `topic:moonmux/workspace` |
 | `app/mods/pane` | One instance per pane (`pane#p3`), each owning one terminal (`pane#p3/term`) on the backend the workspace gives it |
 | `app/mods/sidebar` | Spaces, then agents in our panes, then agents elsewhere |
